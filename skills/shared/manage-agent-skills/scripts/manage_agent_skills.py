@@ -25,7 +25,9 @@ from agent_skills.system import (
     agent_global_install_strategy,
     agent_install_root,
     read_config,
+    remove_path,
     sync_install_dir,
+    sync_materialized_skill_dir,
     write_managed_native_global_state,
 )
 
@@ -502,28 +504,16 @@ def materialize_project_dir(
         dest = dest_dir / name
         existing_names.add(name)
         if dest.exists() or dest.is_symlink():
-            if dest.is_symlink() and dest.resolve() == source.resolve():
-                continue
             if name not in previous_names:
                 raise SkillRepoError(
                     f"Project install path already contains unmanaged entry: {dest}"
                 )
-            if dest.is_symlink():
-                dest.unlink()
-            else:
-                raise SkillRepoError(
-                    f"Managed project entry became a real path and must be resolved manually: {dest}"
-                )
-        ensure_symlink(dest, source, relative=False)
+        sync_materialized_skill_dir(dest, source, relative=False)
 
     for name in previous_names - existing_names:
         stale = dest_dir / name
-        if stale.is_symlink():
-            stale.unlink()
-        elif stale.exists():
-            raise SkillRepoError(
-                f"Managed project entry became a real path and cannot be auto-removed: {stale}"
-            )
+        if stale.exists() or stale.is_symlink():
+            remove_path(stale)
 
     return existing_names
 

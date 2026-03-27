@@ -99,6 +99,8 @@ That rule applies whether the skill starts as:
 
 Antigravity does not have a different lifecycle. It only adds one compatibility layer at install time.
 
+For project installs, shared skill surfaces are materialized as real top-level skill directories with linked contents. That shape keeps the interoperable `.agents/skills` surface compatible with Antigravity while still working for Codex, Gemini CLI, and Claude Code.
+
 ## Agentic Onboarding Contract
 
 An agent opening this repo for the first time should treat onboarding as a conversation with the user, not as a blind script run.

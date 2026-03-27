@@ -161,6 +161,7 @@ Current examples:
 
 - Codex, Gemini CLI, and Claude Code can consume symlinked agent-global views.
 - Antigravity requires real top-level skill directories in its native global path.
+- Shared project install surfaces are materialized as real top-level skill directories with linked contents so the interoperable `.agents/skills` path remains compatible with Antigravity.
 
 Those differences are an adapter concern, not a reason to fork the meta-skill.
 
