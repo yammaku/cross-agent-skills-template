@@ -4,6 +4,59 @@ Single source of truth for AI agent skills across Antigravity, Codex, Gemini CLI
 
 This repo is a skill catalog first. A skill being available here does not mean it is installed agent-globally everywhere.
 
+## Who This README Is For
+
+This README is for both:
+
+- the human who owns the skills registry
+- the AI agent that will onboard or operate it
+
+The goal is to make the first decision clear before any scripts run:
+
+- which repo should be used on this machine
+- what the AI agent should inspect before choosing an onboarding path
+
+## For Humans
+
+### If this is your first time using the system
+
+The simplest path is:
+
+1. give this repo to your AI agent
+2. let the agent read this README
+3. let the agent create your own repo from this template and continue there
+
+You generally should not need to run the setup manually yourself.
+
+### If you already use this system
+
+Do **not** use the upstream public template on a new machine.
+
+Instead:
+
+1. use **your own existing skills-registry repo**
+2. give that repo to your AI agent
+3. let the agent onboard the new machine to your repo
+
+Your own repo is the source of truth once you have one.
+
+### What should you expect the AI agent to do?
+
+The AI agent should inspect the repo and the machine, then guide you.
+
+It should only ask you to choose when there is a real branch to decide, for example:
+
+- whether to migrate existing unmanaged local skills
+- or replace them with backup
+
+Fresh install does **not** silently overwrite unmanaged local skill roots. If they already exist, the system will stop and ask for confirmation.
+
+## Start Here
+
+If you are handing this repo to an AI agent, a good starter prompt is:
+
+`Help me adopt this cross-agent skills system. Read this README first, detect whether this repo is the upstream template or my own repo, inspect the machine state, and then guide me through the correct onboarding path.`
+
 ## OSS Distribution Model
 
 For open source, the intended distribution model is:
@@ -54,22 +107,46 @@ An agent opening this repo for the first time should treat onboarding as a conve
 
 Inspect the current git remote and confirm whether this is the user's own template-derived repo.
 
-If the repo still points to the upstream public template, stop and guide the user to:
+If the repo still points to the upstream public template, do **not** assume that automatically means the user is new to this system.
 
-1. create their own repo from the template
-2. clone that repo locally
-3. continue onboarding there
+Ask one disambiguation question:
+
+- `Is this your first time using this cross-agent-skills system?`
+
+Then branch:
+
+- if **yes**:
+  1. create the user's own repo from the template
+  2. clone that repo locally
+  3. continue onboarding there
+- if **no**:
+  1. ask the user for the link or local path to their existing skills-registry repo
+  2. open or clone that repo instead
+  3. continue onboarding there
 
 Do not mutate the upstream public template clone as if it were the user's personal registry.
 
-### 2. Ask whether this is a fresh install or a migration
+### 2. Inspect machine state before asking the user to choose a path
 
-The onboarding agent should ask whether the user wants:
+Before asking the human to choose anything, inspect the selected agents' native global skill roots and decide whether this machine looks like:
 
-- **Fresh install**
-  Wire this repo into selected agents and start clean.
-- **Migrate existing global skills**
-  Scan current native agent-global roots, recommend classifications, and import approved skills into this repo before rewiring.
+- **already managed by this repo**
+- **empty or missing**
+- **unmanaged local skills exist**
+
+Use that state to drive the conversation:
+
+- if this repo is the upstream template, first resolve whether this is the user's first time using this system
+- if native roots are empty or missing, treat it as a likely fresh install
+- if native roots already contain unmanaged skills, ask whether to migrate them or replace them with backup
+- if the machine is already managed by this repo, verify or resync instead of re-onboarding blindly
+
+Do not ask the vague question "are you a first-time user?" if repo state and machine state already answer what matters.
+
+The one exception is the upstream public template case. There, asking whether this is the user's first time using **this specific system** is the right guardrail, because it distinguishes:
+
+- first-time adoption of this system
+- accidental use of the upstream template by an existing user who should really be using their own repo
 
 ### 3. Ask which agents to manage
 
@@ -80,7 +157,13 @@ Supported agents:
 - `antigravity`
 - `claude-code`
 
-### 4A. Fresh install flow
+### 4. Use repo maturity only as a soft hint
+
+If this repo contains only the seed system skill(s), that is a hint that the registry may be in an early state.
+
+Do **not** treat that alone as the source of truth for whether the user is new. Repo ownership and machine state are the primary signals.
+
+### 5A. Fresh install flow
 
 For a fresh machine or an empty native root, run:
 
@@ -111,7 +194,7 @@ python3 bootstrap/install_agent_skills.py \
 
 `--replace-existing` backs up the unmanaged native root into `~/.agent-skills/backups/` and replaces it with this repo's generated agent-global view. It should only be used after the user explicitly chooses replacement over migration.
 
-### 4B. Migration flow
+### 5B. Migration flow
 
 Migration V1 handles **agent-global skills only**. Do not scan random projects on disk and do not attempt project-local migration yet.
 
