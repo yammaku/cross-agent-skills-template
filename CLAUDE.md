@@ -45,6 +45,12 @@ It contains:
 
 If behavior must be followed from any project, make sure it lives in the meta-skill, not only in repo-local docs.
 
+The expected flow is:
+
+1. an installed agent starts with `manage-agent-skills`
+2. if the user is operating the system, the meta-skill is usually enough
+3. if the user is evolving the system itself, the meta-skill should then point the agent to this file or `AGENTS.md`
+
 ## Git Workflow
 
 When changing this repo:

@@ -36,6 +36,14 @@ Treat the docs as layered on purpose:
 
 If a rule is necessary for correct behavior from any project, it belongs in the meta-skill. If a rule is about improving this repo as a product, it belongs here.
 
+The intended cross-project workflow is:
+
+1. an installed agent starts from `manage-agent-skills`
+2. if the task is ordinary operation, it stays in the meta-skill workflow
+3. if the task is system evolution, the meta-skill should direct the agent here
+
+So this file is not the day-to-day entrypoint. It is the deeper development context for changing the system itself.
+
 ## Core Model
 
 Keep these layers separate:

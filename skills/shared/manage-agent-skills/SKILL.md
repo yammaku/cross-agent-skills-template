@@ -120,6 +120,33 @@ Do not depend on this skill alone for repo-local contributor context when the ac
 
 Do not use this skill as a substitute for the onboarding README when the system is not installed yet. Pre-install onboarding and migration remain README-driven on purpose.
 
+## When Evolving The System
+
+Use this skill as the first entrypoint even for deeper system changes, but do not rely on it alone when the request is about changing the architecture, distribution model, or development workflow of the system itself.
+
+If the request is about evolving the system rather than operating it, first open the configured repo's `AGENTS.md` or `CLAUDE.md` and use that repo-local guide together with this skill.
+
+Typical system-evolution requests include:
+
+- adding or removing a supported agent
+- changing adapter schema or install materialization behavior
+- changing bootstrap or migration flow
+- changing manifest schema or install policy
+- changing documentation boundaries between README, meta-skill, and repo-local guides
+- changing distribution, packaging, or template structure
+
+Use this handoff deliberately:
+
+1. use this meta-skill to locate the correct repo and understand the live operational model
+2. if the request changes the system itself, open `AGENTS.md` or `CLAUDE.md` in that repo
+3. make the change in the repo source of truth, not in generated install views
+4. if the behavior is user-facing from any project, update this meta-skill too
+5. if onboarding, migration, or distribution behavior changed, update `README.md`
+6. run `check`
+7. review the diff, then commit and push in the repo
+
+For normal create, install, promote, fork, sync, and git-maintenance work, this meta-skill should usually be enough on its own.
+
 ## Agent-Aware Execution
 
 When using this skill, always:
