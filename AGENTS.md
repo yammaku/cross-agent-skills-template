@@ -109,7 +109,7 @@ bootstrap/
 - `manifests/agent-global/<agent>.toml` declares only that agent's global install set.
 - Agent-global manifests use explicit refs such as `shared/example-skill` or `codex/example-agent-skill`.
 - Generated install views are outputs, not primary authoring surfaces.
-- Migration V1 is agent-global only. Do not auto-scan or auto-import project-local skills.
+- Migration V1 is agent-global only. Do not auto-scan or auto-import project-local skills during onboarding. Use the explicit `adopt-project` workflow after bootstrap when a project needs to bring local skills into the shared registry.
 - Project installs are shared-only, declared in `.agent-skills.toml`, and materialized into `.agents/skills` plus any distinct native project mirrors such as `.claude/skills`.
 - Do not shadow a shared skill with the same name in an agent folder.
 - If a shared skill needs divergence, create a renamed variant such as `my-skill-antigravity`.

@@ -101,6 +101,8 @@ Antigravity does not have a different lifecycle. It only adds one compatibility 
 
 For project installs, shared skill surfaces are materialized as real top-level skill directories with linked contents. That shape keeps the interoperable `.agents/skills` surface compatible with Antigravity while still working for Codex, Gemini CLI, and Claude Code.
 
+After onboarding, `.agent-skills.toml` is the project-level source of truth. When an agent is using `manage-agent-skills` inside a project that already tracks `.agent-skills.toml`, it should treat that manifest as desired state and run `sync-project` before project-scope skill work if the local project install surfaces are missing, stale, or unclear.
+
 ## Agentic Onboarding Contract
 
 An agent opening this repo for the first time should treat onboarding as a conversation with the user, not as a blind script run.
@@ -198,7 +200,7 @@ python3 bootstrap/install_agent_skills.py \
 
 ### 5B. Migration flow
 
-Migration V1 handles **agent-global skills only**. Do not scan random projects on disk and do not attempt project-local migration yet.
+Migration V1 handles **agent-global skills only**. Do not scan random projects on disk and do not attempt project-local migration during onboarding.
 
 #### Discover existing native global skills
 
@@ -347,6 +349,7 @@ installs/
 - `.agent-skills.toml` in a project: declares only shared catalog skills for that project.
 - `.agents/skills/` in a project: generated shared project-local symlink view.
 - `.claude/skills/` in a project: Claude-native mirror of the shared project skill set.
+- `manage_agent_skills.py adopt-project --project /path/to/project`: explicit post-bootstrap flow for adopting unmanaged project-local skills into the shared registry.
 
 ## Agent Install Conventions
 
@@ -414,6 +417,22 @@ That command:
 - materializes managed links back to this repo's catalog
 
 Project installs are shared-only. If you try to install `codex/...` or `antigravity/...` at project scope, the manager will reject it and direct you to agent-global manifests instead.
+
+If a project already has unmanaged local skill folders from another installer or older workflow, do not treat that as onboarding migration. After bootstrap, use:
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  adopt-project \
+  --project /path/to/project
+```
+
+That explicit adoption flow:
+
+- imports missing local project skills into `skills/shared/`
+- refuses to overwrite conflicting shared catalog skills silently
+- backs up the replaced project-local entries
+- updates `.agent-skills.toml`
+- resyncs the managed project install surfaces
 
 This lets big skill collections live in the catalog without becoming global default baggage.
 

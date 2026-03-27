@@ -239,12 +239,34 @@ Use the matching operation:
   Run `remove-agent-global`.
 - A skill should be available only inside one project:
   Run `install-project`.
+- A project already has unmanaged local skills that should join the registry:
+  Run `adopt-project`.
 - A project should stop using a previously installed skill:
   Run `remove-project`.
 - Generated install views drift:
   Run `sync-agent-global` or `sync-project`.
 - You want to verify repo invariants before or after changes:
   Run `check`.
+
+## Project Manifest Guardrail
+
+When this meta-skill is invoked from inside a project repo, do not assume the local project skill surfaces are already materialized just because the project tracks `.agent-skills.toml`.
+
+Use this rule:
+
+1. detect whether the current project has `.agent-skills.toml`
+2. if it does, treat that file as the desired shared project skill state
+3. before project-scope skill work, verify that the local project install surfaces are present and look consistent with that manifest
+4. if the state is missing, stale, or unclear, run `sync-project --project <project-root>` first
+5. then continue with the requested skill-management task
+
+This guardrail is part of `manage-agent-skills` itself. Do not rely only on per-project `AGENTS.md` snippets to trigger project skill materialization.
+
+In practice, this means:
+
+- if the user asks to install or remove a project skill, the skill may sync the project first before applying the new change
+- if the user asks for project skill help and `.agent-skills.toml` already exists, check whether `.agents/skills`, `.claude/skills`, and other project install surfaces need regeneration
+- if everything is already clearly in sync, continue without redundant work
 
 ## Human Intent Playbook
 
@@ -254,6 +276,7 @@ Humans will often invoke this meta-skill with intent-level requests instead of l
 
 Expected behavior:
 
+1. If the current project already has `.agent-skills.toml`, verify that the project install surfaces are materialized first. If they are missing, stale, or unclear, run `sync-project`.
 1. Check whether the skill already exists in the catalog.
 2. If it exists, install it only into the current project.
 3. Do not modify any agent-global manifest unless the user explicitly says to install it globally.
@@ -279,6 +302,7 @@ Default operation:
 
 Expected behavior:
 
+1. If the current project already has `.agent-skills.toml`, verify that the project install surfaces are materialized first. If they are missing, stale, or unclear, run `sync-project`.
 1. Check whether an existing catalog skill already satisfies the request.
 2. If an existing skill is good enough, reuse it instead of creating a duplicate.
 3. If a new skill is needed, create the canonical source in the catalog first.
@@ -315,6 +339,23 @@ Default operation:
 3. Run `install-agent-global --agent <current-agent> ...`
 
 For Antigravity, this repo-first flow is mandatory because its native global folder is a managed materialization surface.
+
+### 4B. "Adopt these existing project-local skills into our registry"
+
+Expected behavior:
+
+1. Treat this as a deliberate post-bootstrap cleanup flow, not as onboarding migration.
+2. Prefer importing project-local skills into `skills/shared/` by default, because project installs are shared-only.
+3. Refuse to overwrite a conflicting shared catalog skill silently.
+4. Back up the replaced local project entries before changing the project install surfaces.
+5. Update the project's `.agent-skills.toml`.
+6. Resync the project so `.agents/skills`, `.claude/skills`, and any compatibility mirrors become registry-managed outputs.
+
+Default operation:
+
+1. Run `adopt-project`
+2. Review the imported or reused shared skills
+3. Verify the project still discovers the regenerated skill surfaces
 
 ### 5. "Promote this skill"
 
@@ -387,14 +428,15 @@ If a request would both recategorize a skill and broaden where it is installed, 
 
 ## Preferred Workflow
 
-1. Pick the structural operation and run the bundled script first.
-2. If the operation creates a new skill scaffold, edit the new `SKILL.md` and any resources after the folder layout is correct.
-3. When writing or improving the skill contents themselves, use `skill-creator` guidance if the task is substantial.
-4. Sync the relevant install view if the skill should become available agent-globally or inside a project.
-5. When changing agent-global installs, edit only that agent's manifest and sync only that agent unless the user explicitly wants a broader rollout.
-6. Run `check` after structural changes.
-7. Use plain git commands in the configured skills-registry repo to review, commit, and push.
-8. If compatibility behavior changed, update the relevant file under `agents/` and the docs that describe the lifecycle.
+1. If you are inside a project repo and `.agent-skills.toml` exists, verify whether project installs need `sync-project` before doing project-scope skill work.
+2. Pick the structural operation and run the bundled script first.
+3. If the operation creates a new skill scaffold, edit the new `SKILL.md` and any resources after the folder layout is correct.
+4. When writing or improving the skill contents themselves, use `skill-creator` guidance if the task is substantial.
+5. Sync the relevant install view if the skill should become available agent-globally or inside a project.
+6. When changing agent-global installs, edit only that agent's manifest and sync only that agent unless the user explicitly wants a broader rollout.
+7. Run `check` after structural changes.
+8. Use plain git commands in the configured skills-registry repo to review, commit, and push.
+9. If compatibility behavior changed, update the relevant file under `agents/` and the docs that describe the lifecycle.
 
 If the current agent is Antigravity, be extra deliberate about step 1. Do not create a new skill folder directly in `~/.gemini/antigravity/skills`; always start from the repo operation first.
 
@@ -504,6 +546,26 @@ python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
   gstack
 ```
 
+### Adopt unmanaged project-local skills into the registry
+
+Imports existing local project skills into `skills/shared/`, updates the project's `.agent-skills.toml`, backs up the replaced local entries, and then rebuilds the managed project install surfaces.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  adopt-project \
+  --project /path/to/project
+```
+
+You can also target specific skills or point at one project-local source root explicitly:
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  adopt-project \
+  --project /path/to/project \
+  --source-dir /path/to/project/.agents/skills \
+  wrangler cloudflare
+```
+
 ### Sync generated installs
 
 Rebuilds the generated agent-global or project install views from the manifest files.
@@ -528,6 +590,7 @@ python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py check
 - The script creates a minimal scaffold for new skills. It does not finish the skill content for you.
 - If a name collision happens, stop and resolve the ownership question instead of forcing a move.
 - If an agent already has a real folder with the same name as a shared skill, treat that as a system inconsistency and fix it deliberately.
+- `adopt-project` is the explicit path for bringing unmanaged project-local skills into the registry after bootstrap. Keep onboarding migration focused on agent-global roots.
 - Installing a skill agent-globally or into a project does not copy the skill. It creates symlinks back to the canonical source in this repo.
 - Agent-global installs may be materialized differently per adapter. For example, Antigravity uses real top-level skill dirs with linked contents, while Codex, Gemini CLI, and Claude Code can consume direct symlinked views.
 - Bare skill names are allowed in commands for convenience, but agent-global manifests are stored using explicit refs.

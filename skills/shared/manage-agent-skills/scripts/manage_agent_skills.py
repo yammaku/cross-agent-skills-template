@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 REPO_HINT = Path(__file__).resolve()
@@ -34,6 +36,8 @@ from agent_skills.system import (
 RESOURCE_KINDS = ("scripts", "references", "assets")
 NAME_RE = re.compile(r"^[a-z0-9-]+$")
 IGNORED_NAMES = {".DS_Store", "__pycache__"}
+PROJECT_LEGACY_INSTALL_DIR = Path(".agent") / "skills"
+PROJECT_BACKUPS_DIR = ".agent-skills-backups"
 
 SKILL_TEMPLATE = """---
 name: {name}
@@ -194,6 +198,14 @@ def project_managed_state_path(project: Path) -> Path:
     return project / ".agents" / ".agent-skills-managed.project.toml"
 
 
+def project_legacy_install_dir(project: Path) -> Path:
+    return project / PROJECT_LEGACY_INSTALL_DIR
+
+
+def project_backups_dir(project: Path) -> Path:
+    return project / PROJECT_BACKUPS_DIR
+
+
 def interoperable_project_install_dir(project: Path) -> Path:
     return project / ".agents" / "skills"
 
@@ -204,6 +216,14 @@ def project_install_dirs(root: Path, project: Path) -> list[Path]:
         native = adapter.project_path(project)
         if native not in paths:
             paths.append(native)
+    return paths
+
+
+def project_candidate_skill_roots(root: Path, project: Path) -> list[Path]:
+    paths = project_install_dirs(root, project)
+    legacy = project_legacy_install_dir(project)
+    if legacy not in paths:
+        paths.append(legacy)
     return paths
 
 
@@ -320,6 +340,78 @@ def skill_path(base: Path, name: str) -> Path:
 
 def exists_or_link(path: Path) -> bool:
     return path.exists() or path.is_symlink()
+
+
+def path_is_within(path: Path, base: Path) -> bool:
+    try:
+        path.resolve().relative_to(base.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def timestamp_slug() -> str:
+    return datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def visible_skill_entry_names(path: Path) -> list[str]:
+    if not path.is_dir():
+        return []
+    names: list[str] = []
+    for child in sorted(path.iterdir(), key=lambda item: item.name):
+        if child.name.startswith(".") or child.name in IGNORED_NAMES:
+            continue
+        if child.is_dir() or child.is_symlink():
+            names.append(child.name)
+    return names
+
+
+def file_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def directory_fingerprint(path: Path) -> tuple[tuple[str, ...], ...]:
+    entries: list[tuple[str, ...]] = []
+    for current_root, dirnames, filenames in os.walk(path, topdown=True, followlinks=True):
+        dirnames[:] = sorted(name for name in dirnames if name not in IGNORED_NAMES)
+        filenames = sorted(name for name in filenames if name not in IGNORED_NAMES)
+        rel_root = os.path.relpath(current_root, start=path)
+        rel_root = "" if rel_root == "." else rel_root.replace(os.sep, "/")
+        entries.append(("dir", rel_root))
+        for filename in filenames:
+            file_path = Path(current_root) / filename
+            rel_path = f"{rel_root}/{filename}" if rel_root else filename
+            executable = "x" if os.access(file_path, os.X_OK) else "-"
+            entries.append(("file", rel_path, executable, file_digest(file_path)))
+    return tuple(entries)
+
+
+def project_legacy_mirror_target(project: Path, name: str) -> Path:
+    return interoperable_project_install_dir(project) / name
+
+
+def is_legacy_project_mirror_entry(project: Path, path: Path, name: str) -> bool:
+    if not path.is_symlink():
+        return False
+    try:
+        return path.resolve() == project_legacy_mirror_target(project, name).resolve()
+    except FileNotFoundError:
+        return False
+
+
+def backup_path(source: Path, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if source.is_symlink():
+        dest.symlink_to(source.readlink())
+        return
+    if source.is_dir():
+        shutil.copytree(source, dest, symlinks=True)
+        return
+    shutil.copy2(source, dest, follow_symlinks=False)
 
 
 def write_scaffold(path: Path, name: str, resources: list[str]) -> None:
@@ -539,6 +631,214 @@ def sync_project(root: Path, project: Path) -> None:
         "Shared project surfaces updated "
         f"(previous managed profile: {previous_agent or 'none'})."
     )
+
+
+def discover_project_adopt_names(
+    root: Path,
+    project: Path,
+    previous_names: set[str],
+    source_dir: Path | None,
+) -> list[str]:
+    names: set[str] = set()
+    managed_roots = set(project_install_dirs(root, project))
+    for root_dir in ([source_dir] if source_dir is not None else project_candidate_skill_roots(root, project)):
+        if root_dir is None or not root_dir.is_dir():
+            continue
+        for name in visible_skill_entry_names(root_dir):
+            entry = root_dir / name
+            if root_dir in managed_roots and name in previous_names:
+                continue
+            if root_dir == project_legacy_install_dir(project) and is_legacy_project_mirror_entry(
+                project, entry, name
+            ):
+                continue
+            names.add(name)
+    return sorted(names)
+
+
+def collect_project_adopt_candidates(
+    root: Path,
+    project: Path,
+    name: str,
+    previous_names: set[str],
+    source_dir: Path | None,
+) -> list[dict[str, object]]:
+    candidates: list[dict[str, object]] = []
+    managed_roots = set(project_install_dirs(root, project))
+    roots = [source_dir] if source_dir is not None else project_candidate_skill_roots(root, project)
+
+    for index, root_dir in enumerate(roots):
+        if root_dir is None:
+            continue
+        entry = root_dir / name
+        if not exists_or_link(entry):
+            continue
+        try:
+            if not entry.is_dir():
+                continue
+        except FileNotFoundError:
+            continue
+        if source_dir is None and root_dir in managed_roots and name in previous_names:
+            continue
+        if source_dir is None and root_dir == project_legacy_install_dir(project):
+            if is_legacy_project_mirror_entry(project, entry, name):
+                continue
+        candidates.append(
+            {
+                "entry": entry,
+                "root": root_dir,
+                "index": index,
+                "is_symlink": entry.is_symlink(),
+                "fingerprint": directory_fingerprint(entry),
+            }
+        )
+    return candidates
+
+
+def choose_project_adopt_source(
+    root: Path,
+    project: Path,
+    name: str,
+    previous_names: set[str],
+    source_dir: Path | None,
+) -> Path:
+    candidates = collect_project_adopt_candidates(root, project, name, previous_names, source_dir)
+    if not candidates:
+        roots = [source_dir] if source_dir is not None else project_candidate_skill_roots(root, project)
+        rendered_roots = ", ".join(str(path) for path in roots if path is not None)
+        raise SkillRepoError(
+            f"Could not find a local project skill source for '{name}' under {rendered_roots}."
+        )
+
+    chosen = candidates[0]
+    for candidate in candidates[1:]:
+        if candidate["fingerprint"] != chosen["fingerprint"]:
+            locations = ", ".join(str(item["entry"]) for item in candidates)
+            raise SkillRepoError(
+                f"Project skill '{name}' has conflicting local contents across: {locations}. "
+                "Reconcile them or rerun adopt-project with --source-dir."
+            )
+        if bool(chosen["is_symlink"]) and not bool(candidate["is_symlink"]):
+            chosen = candidate
+            continue
+        if bool(chosen["is_symlink"]) == bool(candidate["is_symlink"]) and int(candidate["index"]) < int(
+            chosen["index"]
+        ):
+            chosen = candidate
+    return Path(chosen["entry"])
+
+
+def import_project_skill_into_shared(root: Path, name: str, source: Path) -> bool:
+    validate_name(name)
+    destination = skill_path(shared_dir(root), name)
+    if destination.exists():
+        if destination.is_symlink():
+            raise SkillRepoError(
+                f"Shared catalog path for '{name}' is a symlink. Resolve that before adopting project skills."
+            )
+        if directory_fingerprint(destination) != directory_fingerprint(source):
+            raise SkillRepoError(
+                f"Shared catalog skill '{name}' already exists but differs from the local project copy at {source}. "
+                "Rename it, reconcile it manually, or fork deliberately before adoption."
+            )
+        return False
+
+    shutil.copytree(source, destination, symlinks=False)
+    return True
+
+
+def backup_and_remove_project_entry(project: Path, backup_root: Path, entry: Path) -> None:
+    relative = entry.relative_to(project)
+    destination = backup_root / relative
+    if destination.exists() or destination.is_symlink():
+        raise SkillRepoError(f"Backup path already exists: {destination}")
+    backup_path(entry, destination)
+    remove_path(entry)
+
+
+def refresh_legacy_project_mirror(project: Path, names: set[str]) -> None:
+    legacy_root = project_legacy_install_dir(project)
+    if not legacy_root.exists():
+        return
+    legacy_root.mkdir(parents=True, exist_ok=True)
+    source_root = interoperable_project_install_dir(project)
+    for name in sorted(names):
+        target = source_root / name
+        if not target.exists() and not target.is_symlink():
+            continue
+        ensure_symlink(legacy_root / name, target, relative=True)
+
+
+def adopt_project(
+    root: Path,
+    project: Path,
+    raw_names: list[str],
+    *,
+    source_dir: Path | None,
+) -> None:
+    previous_profile, previous_names = read_project_managed_state(project)
+    if source_dir is not None:
+        if not source_dir.exists() or not source_dir.is_dir():
+            raise SkillRepoError(f"--source-dir must be an existing directory: {source_dir}")
+        if not path_is_within(source_dir, project):
+            raise SkillRepoError("--source-dir must be inside the target project.")
+
+    names = raw_names[:]
+    if not names:
+        names = discover_project_adopt_names(root, project, previous_names, source_dir)
+    if not names:
+        raise SkillRepoError(
+            "No adoptable local project skills were found. "
+            "If the project already tracks .agent-skills.toml, try sync-project instead."
+        )
+
+    for name in names:
+        validate_name(name)
+
+    unique_names = sorted(dict.fromkeys(names))
+    imported: list[str] = []
+    reused: list[str] = []
+    for name in unique_names:
+        source = choose_project_adopt_source(root, project, name, previous_names, source_dir)
+        if import_project_skill_into_shared(root, name, source):
+            imported.append(name)
+        else:
+            reused.append(name)
+
+    backup_root = project_backups_dir(project) / f"adopt-project-{timestamp_slug()}"
+    cleanup_roots = project_candidate_skill_roots(root, project)
+    if source_dir is not None and source_dir not in cleanup_roots:
+        cleanup_roots.append(source_dir)
+
+    for name in unique_names:
+        for root_dir in cleanup_roots:
+            entry = root_dir / name
+            if not exists_or_link(entry):
+                continue
+            backup_and_remove_project_entry(project, backup_root, entry)
+
+    update_project_manifest_with_skills(
+        root,
+        project_manifest_path(project),
+        unique_names,
+        add=True,
+    )
+    sync_project(root, project)
+
+    manifest = read_project_manifest(project_manifest_path(project))
+    refresh_legacy_project_mirror(project, manifest["shared"])
+
+    print(
+        "[OK] Adopted project-local skills into the shared registry and resynced the project."
+    )
+    if imported:
+        print(f"[OK] Imported into shared catalog: {', '.join(imported)}")
+    if reused:
+        print(f"[OK] Already matched existing shared catalog skills: {', '.join(reused)}")
+    if backup_root.exists():
+        print(f"[OK] Backups saved under: {backup_root}")
+    if previous_profile:
+        print(f"[OK] Previous managed project profile: {previous_profile}")
 
 
 def update_project_manifest_with_skills(
@@ -776,6 +1076,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sync_project_parser.add_argument("--project", required=True)
 
+    adopt_project_parser = subparsers.add_parser(
+        "adopt-project",
+        help=(
+            "Adopt unmanaged project-local skills into the shared catalog, "
+            "update .agent-skills.toml, and resync project install surfaces."
+        ),
+    )
+    adopt_project_parser.add_argument("--project", required=True)
+    adopt_project_parser.add_argument(
+        "--source-dir",
+        help="Optional project-local directory to treat as the canonical source root.",
+    )
+    adopt_project_parser.add_argument("skills", nargs="*")
+
     install_global_parser = subparsers.add_parser(
         "install-agent-global",
         help="Add skills to one agent-global manifest and resync only that agent.",
@@ -834,6 +1148,17 @@ def main() -> None:
             sync_agent_global(root, args.agent)
         elif args.command == "sync-project":
             sync_project(root, Path(args.project).expanduser().resolve())
+        elif args.command == "adopt-project":
+            adopt_project(
+                root,
+                Path(args.project).expanduser().resolve(),
+                args.skills,
+                source_dir=(
+                    Path(args.source_dir).expanduser().resolve()
+                    if args.source_dir
+                    else None
+                ),
+            )
         elif args.command == "install-agent-global":
             update_agent_global_manifest_with_skills(
                 root,
