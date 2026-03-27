@@ -1,0 +1,6 @@
+# Copy this file into a project root as `.agent-skills.toml`
+# and keep only the shared skills you want installed for that project.
+# Agent-specific skills belong in agent-global manifests, not at project scope.
+
+[skills]
+shared = []

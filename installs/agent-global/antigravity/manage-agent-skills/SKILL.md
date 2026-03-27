@@ -1,0 +1,1 @@
+../../../../skills/shared/manage-agent-skills/SKILL.md

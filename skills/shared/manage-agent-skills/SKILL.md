@@ -1,0 +1,506 @@
+---
+name: manage-agent-skills
+description: Manage the shared skills-registry repo across Antigravity, Claude Code, Codex, and Gemini CLI. Use when creating a new shared or agent-specific skill, promoting an agent-specific skill to shared, forking a shared skill into a renamed agent-specific variant, or managing agent-global and project install manifests.
+---
+
+# Manage Agent Skills
+
+Maintain the configured repo-backed skills registry.
+
+Prefer the bundled script for structural mutations so catalog placement, manifests, and generated install views stay consistent.
+
+This skill is the cross-project operator manual for the skills-registry system after bootstrap. Once an agent has this skill installed, it should rely on this document for day-to-day skill operations and repo maintenance, even when working from another project.
+
+This is one universal shared meta-skill. Do not create agent-specific copies of it. Agent-specific differences belong in adapter files under `agents/`, not in forked meta-skill variants.
+
+## System Rules
+
+- `skills/shared/<skill>` is the canonical source for cross-agent skills.
+- `skills/<agent>/<skill>` is the canonical source for agent-specific skills.
+- `agents/<agent>.toml` is the adapter definition for that harness's native global and project skill directories.
+- `agents/<agent>.toml` also decides how that agent-global install is materialized.
+- `manifests/agent-global/<agent>.toml` decides what is installed agent-globally for one agent.
+- Project `.agent-skills.toml` files decide what shared skills are installed inside individual projects.
+- Generated install views live under `installs/agent-global/<agent>` plus the project-local directories defined by each agent adapter.
+- Do not shadow a shared skill with the same name in one agent folder.
+- If a shared skill needs agent-specific behavior, create a renamed variant such as `my-skill-antigravity`.
+- Workflows are out of scope for this repo.
+- Agent-global manifests use explicit refs like `shared/example-skill` or `codex/example-agent-skill`.
+- Shared is the default source category.
+- Project installs are shared-only.
+- Agent-specific skills may be installed agent-globally, but not at project scope.
+
+## Universal Lifecycle
+
+All agents follow the same core lifecycle:
+
+1. decide whether the skill already exists in the catalog
+2. if not, create or import the canonical source in the repo first
+3. classify that source as `shared` or `agent-specific`
+4. update the relevant manifest
+5. sync the generated install view
+6. run `check`
+7. review, commit, and push the repo change when appropriate
+
+Apply this same lifecycle whether the incoming request is:
+
+- create a new skill
+- install a catalog skill
+- import a skill from GitHub, the internet, or another local folder
+- adopt an unmanaged native skill folder
+- promote or fork an existing skill
+- update a skill that originally came from outside this repo
+
+The invariant is simple:
+
+- the repo catalog is always the source of truth
+- native agent skill folders are managed install surfaces
+- install shape may vary by adapter, but the lifecycle does not
+
+## Universal Meta-Skill Rule
+
+- `manage-agent-skills` is shared on purpose.
+- Onboarding should install this same shared skill into every selected agent's agent-global install set.
+- Do not create `manage-agent-skills-antigravity`, `manage-agent-skills-codex`, or other agent-specific copies.
+- Keep one universal operating manual and make it agent-aware through the adapter model.
+
+The correct split is:
+
+- shared meta-skill for universal policy and lifecycle
+- agent adapters for path and install-materialization differences
+
+## Agent Paths
+
+Use one of these entrypoints:
+
+- From the repo root:
+  `python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py --help`
+- From an installed agent:
+  `python3 ~/.codex/skills/manage-agent-skills/scripts/manage_agent_skills.py --help`
+
+The script resolves the repo root in this order:
+
+- `AGENT_SKILLS_REPO`
+- walking up from the script file location
+- `~/.agent-skills/config.toml`
+
+## Pre-Install Boundary
+
+If the machine has not been onboarded yet, do not assume the installed copy of this skill exists.
+
+Before bootstrap or migration:
+
+1. clone or open the user's skills-registry repo
+2. read the root `README.md`
+3. follow the AI-led onboarding contract there
+
+The README owns:
+
+- fresh install
+- agent-global migration discovery
+- batch classification and user confirmation
+- applying the approved migration plan
+
+This skill takes over only after onboarding has installed `shared/manage-agent-skills` into the selected agents' agent-global views.
+
+Claude Code is supported through the same onboarding flow. Its adapter maps agent-global installs to `~/.claude/skills` and mirrors shared project installs into `.claude/skills`.
+
+## Scope Boundary
+
+Use this skill for the live operational lifecycle of the skill system:
+
+- create or recategorize catalog skills
+- install skills agent-globally or into projects
+- sync generated install views
+- validate invariants
+- maintain the skills-registry repo with git after skill changes
+- add or update agent adapters when a new harness needs support
+
+Do not depend on this skill alone for repo-local contributor context when the active project is the skills-registry repo itself. In that case, also follow the repo's `AGENTS.md` or `CLAUDE.md`, which act as the development guide for improving the system itself.
+
+Do not use this skill as a substitute for the onboarding README when the system is not installed yet. Pre-install onboarding and migration remain README-driven on purpose.
+
+## Agent-Aware Execution
+
+When using this skill, always:
+
+1. identify the current agent
+2. read its adapter behavior from `agents/<agent>.toml`
+3. apply the adapter's path and install strategy deliberately
+
+Do not assume every agent consumes the same on-disk install shape.
+
+Current examples:
+
+- Codex, Gemini CLI, and Claude Code can consume symlinked agent-global views.
+- Antigravity requires real top-level skill directories in its native global path.
+
+Those differences are an adapter concern, not a reason to fork the meta-skill.
+
+## External Intake Rule
+
+If the user wants a skill that is not already in this repo, do not install it straight into a native agent folder.
+
+Use this flow instead:
+
+1. inspect the external source
+2. decide whether it belongs in `skills/shared/` or `skills/<agent>/`
+3. import it into the repo catalog first
+4. install it through the relevant manifest
+5. sync the managed install view
+6. run `check`
+
+This applies equally to:
+
+- a skill from GitHub
+- a skill found on the internet
+- a skill copied from another local directory
+- an unmanaged native skill folder that needs to be adopted
+
+If the source is unclear, default to `shared` unless the skill clearly depends on one harness.
+
+## Repo-First Creation Rule
+
+For every agent, including Antigravity:
+
+- create new skills in the repo catalog first
+- then install or sync them into the relevant agent or project view
+
+Do not create a brand-new global skill directly inside a native agent folder and treat that as authoritative.
+
+This is especially important for Antigravity because its native global folder is materialized for compatibility and can contain real top-level directories.
+
+Editing existing managed Antigravity skills is safe because their contents link back to the repo. Creating a brand-new skill directly there is not the source-of-truth path.
+
+## Antigravity Compatibility Layer
+
+Antigravity follows the same universal lifecycle as every other agent.
+
+It adds one extra compatibility rule:
+
+- its native global skill scanner requires real top-level skill directories
+
+So Antigravity's adapter materializes real top-level skill folders whose contents link back to the repo catalog. That means its native global folder is still managed output, not a source-of-truth exception.
+
+In practice, the extra rule is:
+
+If the current agent is Antigravity:
+
+- never create a new global skill by writing directly into `~/.gemini/antigravity/skills/<name>`
+- treat `~/.gemini/antigravity/skills` as managed output only
+- create the skill in `skills/shared/` or `skills/antigravity/` first
+- then sync or install it through this system
+
+If you discover an unmanaged native Antigravity skill folder, treat it as an adoption or migration case, not as canonical source by default.
+
+## Decision Guide
+
+Use the matching operation:
+
+- User wants a portable, universal, or cross-agent skill:
+  Run `create`.
+- User wants an agent-only integration or environment-specific skill:
+  Run `create-agent`.
+- An agent-specific skill has proven portable and should now be shared:
+  Run `promote`.
+- A shared skill needs one agent-specific variant:
+  Run `fork` and use a renamed agent variant.
+- A skill should be available agent-globally in one agent:
+  Run `install-agent-global`.
+- A skill should stop being available agent-globally in one agent:
+  Run `remove-agent-global`.
+- A skill should be available only inside one project:
+  Run `install-project`.
+- A project should stop using a previously installed skill:
+  Run `remove-project`.
+- Generated install views drift:
+  Run `sync-agent-global` or `sync-project`.
+- You want to verify repo invariants before or after changes:
+  Run `check`.
+
+## Human Intent Playbook
+
+Humans will often invoke this meta-skill with intent-level requests instead of low-level commands. Treat the following as the default contract.
+
+### 1. "Install a skill for this project"
+
+Expected behavior:
+
+1. Check whether the skill already exists in the catalog.
+2. If it exists, install it only into the current project.
+3. Do not modify any agent-global manifest unless the user explicitly says to install it globally.
+4. Project installs are shared-only. If the skill is agent-specific, stop and route it to agent-global install instead.
+
+Default operation:
+
+- If the skill already exists: run `install-project`.
+- If the skill does not exist: follow scenario 3 below first, then install-project.
+
+### 2. "Install a skill globally"
+
+Expected behavior:
+
+1. Install it only for the current agent by editing that agent's manifest.
+2. Do not modify the other agents' manifests unless the user explicitly asks for a cross-agent rollout.
+
+Default operation:
+
+- Run `install-agent-global --agent <current-agent> ...`
+
+### 3. "Create a new skill and install it for this project"
+
+Expected behavior:
+
+1. Check whether an existing catalog skill already satisfies the request.
+2. If an existing skill is good enough, reuse it instead of creating a duplicate.
+3. If a new skill is needed, create the canonical source in the catalog first.
+4. Then install it into the project only.
+5. Do not add it to any agent-global manifest unless the user explicitly asks for that.
+6. Because project installs are shared-only, a new project skill should be created as shared by default.
+
+Default source-category rule:
+
+- Create it in `skills/shared` by default.
+- Only use `create-agent` when the human explicitly wants an agent-specific skill or the skill clearly depends on one harness.
+- If the request also introduces a new harness, add or update that harness's adapter before assuming hard-coded paths.
+
+Default operation:
+
+1. Create with `create` unless there is a clear reason to use `create-agent`
+2. Fill in or improve the skill content
+3. Run `install-project`
+
+Never bypass this flow by creating a new folder directly in a native agent skills directory.
+
+### 4. "Create a new skill and install it globally"
+
+Expected behavior:
+
+1. Create the canonical source first.
+2. Install it only for the current agent unless the human explicitly asks for multiple agents.
+3. If the human asked for a shared skill, that means shared source category, not automatic cross-agent global install.
+
+Default operation:
+
+1. Create with `create` unless there is a clear reason to use `create-agent`
+2. Fill in or improve the skill content
+3. Run `install-agent-global --agent <current-agent> ...`
+
+For Antigravity, this repo-first flow is mandatory because its native global folder is a managed materialization surface.
+
+### 5. "Promote this skill"
+
+Expected behavior:
+
+1. Promotion means source recategorization, not automatic install changes.
+2. Move the source from `skills/<agent>/<name>` to `skills/shared/<name>`.
+3. Keep existing shared project installs and agent-global installs working.
+4. Only broaden installation if the user explicitly asks for it.
+
+Default operation:
+
+1. Run `promote`
+2. If needed, update manifests to use the explicit `shared/<name>` ref
+3. Sync the affected install views
+
+### 6. "Recategorize this skill" or "make this agent-specific"
+
+Expected behavior:
+
+1. Do not shadow a shared skill with the same name.
+2. Keep the shared skill intact.
+3. Create a renamed agent-specific variant if one agent now needs different behavior.
+4. Update only the affected agent's global manifest or the shared project manifest as appropriate.
+
+Default operation:
+
+1. Run `fork --new-name <name>-<agent>`
+2. Update the relevant manifest or project install to point at the new variant
+3. Sync only the affected agent or project
+
+### 7. "Install this shared skill for Codex" or "for Antigravity"
+
+Expected behavior:
+
+1. `shared` is a source category only.
+2. Installing a shared skill for one agent should touch only that agent's manifest.
+3. Do not infer "shared source" as "install for all agents."
+
+Default operation:
+
+- Add `shared/<name>` only to `manifests/agent-global/<agent>.toml` or to the target project's manifest, then sync the relevant target.
+
+### 8. "Use the same skill in multiple agents"
+
+Expected behavior:
+
+1. First decide whether the source should be shared or remain agent-specific.
+2. Then install it into each target agent explicitly.
+3. Do not broaden all agents by default just because two agents are involved.
+
+Default operation:
+
+- If portable, use `shared/<name>` and add it explicitly to each target agent's manifest.
+- If not portable, keep separate agent-specific sources.
+
+## Safety Defaults
+
+Unless the human explicitly says otherwise:
+
+- Prefer project install over agent-global install.
+- Prefer reusing an existing catalog skill over creating a duplicate.
+- Prefer shared source over agent-specific source unless the skill clearly depends on one harness.
+- Prefer promotion only after a skill has actually proven portable.
+- Treat source-category changes and install-policy changes as separate decisions.
+- Treat project installs as shared-only by default and by policy.
+- Treat native agent skill folders as install surfaces, not as the place to author new canonical skills.
+
+If a request would both recategorize a skill and broaden where it is installed, call that out and handle the two changes deliberately instead of collapsing them into one implied action.
+
+## Preferred Workflow
+
+1. Pick the structural operation and run the bundled script first.
+2. If the operation creates a new skill scaffold, edit the new `SKILL.md` and any resources after the folder layout is correct.
+3. When writing or improving the skill contents themselves, use `skill-creator` guidance if the task is substantial.
+4. Sync the relevant install view if the skill should become available agent-globally or inside a project.
+5. When changing agent-global installs, edit only that agent's manifest and sync only that agent unless the user explicitly wants a broader rollout.
+6. Run `check` after structural changes.
+7. Use plain git commands in the configured skills-registry repo to review, commit, and push.
+8. If compatibility behavior changed, update the relevant file under `agents/` and the docs that describe the lifecycle.
+
+If the current agent is Antigravity, be extra deliberate about step 1. Do not create a new skill folder directly in `~/.gemini/antigravity/skills`; always start from the repo operation first.
+
+For a create-and-install request, do not stop after scaffolding the source skill. Complete the full flow:
+
+1. create source
+2. improve the skill contents enough to be usable
+3. install it to the requested target
+4. sync
+5. run `check`
+
+## Git Lifecycle
+
+Changing a skill, manifest, or install policy is only half of the maintenance loop. The source of truth is still the git repo.
+
+After meaningful changes in the skills-registry repo:
+
+1. Run `check`.
+2. Review the diff in the configured repo.
+3. Commit in the skills-registry repo with a message that describes the catalog or lifecycle change.
+4. Push when the user asks you to publish the update or when the workflow explicitly requires it.
+
+Use git in the repo itself, not through one agent category. The repo is the maintained product.
+
+Keep the distinction clear:
+
+- `sync` updates generated install views on the current machine
+- `git commit` records source-of-truth changes in the repo
+- `git push` publishes those changes for other machines or collaborators
+
+When another machine needs the update, the intended flow is:
+
+1. pull the latest skills-registry repo
+2. run bootstrap if the machine is new
+3. otherwise rerun `sync-agent-global` or the relevant `sync-project` operation if needed
+
+## Adapter Lifecycle
+
+Use adapter files under `agents/` to teach the system about a harness's native paths.
+
+When adding a new agent:
+
+1. create `agents/<agent>.toml`
+2. create `skills/<agent>/`
+3. add `manifests/agent-global/<agent>.toml`
+4. update bootstrap and docs only if behavior changed beyond what the adapter can express
+
+Prefer adapter changes over more hard-coded path logic in Python.
+
+## Commands
+
+### Create a shared skill
+
+Creates the real skill folder in `skills/shared/<name>`. It does not install the skill anywhere by itself.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  create my-skill --resources scripts,references
+```
+
+### Create an agent-specific skill
+
+Creates the real skill folder only in the chosen agent.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  create-agent antigravity my-skill --resources scripts
+```
+
+### Promote an agent-specific skill to shared
+
+Moves the agent-owned folder into `shared`. It does not automatically install it anywhere.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  promote antigravity my-skill
+```
+
+### Fork a shared skill into an agent-specific variant
+
+Keeps the shared skill intact and creates a renamed agent-specific copy.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  fork antigravity my-skill --new-name my-skill-antigravity
+```
+
+### Install a skill agent-globally
+
+Adds one or more catalog skills to `manifests/agent-global/<agent>.toml` for an agent and regenerates only that agent's global install view.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  install-agent-global \
+  --agent codex \
+  gstack cloudflare
+```
+
+### Install a skill in one project
+
+Adds one or more shared catalog skills to a project's `.agent-skills.toml` and regenerates both the interop and Claude-native project views.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  install-project \
+  --project /path/to/project \
+  gstack
+```
+
+### Sync generated installs
+
+Rebuilds the generated agent-global or project install views from the manifest files.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py sync-agent-global
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  sync-project \
+  --project /path/to/project
+```
+
+### Check the system
+
+Validates the catalog and generated install invariants.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py check
+```
+
+## Notes
+
+- The script creates a minimal scaffold for new skills. It does not finish the skill content for you.
+- If a name collision happens, stop and resolve the ownership question instead of forcing a move.
+- If an agent already has a real folder with the same name as a shared skill, treat that as a system inconsistency and fix it deliberately.
+- Installing a skill agent-globally or into a project does not copy the skill. It creates symlinks back to the canonical source in this repo.
+- Agent-global installs may be materialized differently per adapter. For example, Antigravity uses real top-level skill dirs with linked contents, while Codex, Gemini CLI, and Claude Code can consume direct symlinked views.
+- Bare skill names are allowed in commands for convenience, but agent-global manifests are stored using explicit refs.
+- Project commands accept shared skills only. Agent-specific refs must be handled through agent-global commands.

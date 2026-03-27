@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Agent Skills"
+  short_description: "Manage shared and runtime-specific skills"
+  default_prompt: "Create, promote, fork, and relink skills in the skills-registry repo."

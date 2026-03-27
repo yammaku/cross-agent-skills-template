@@ -1,0 +1,366 @@
+# cross-agent-skills-template
+
+Single source of truth for AI agent skills across Antigravity, Codex, Gemini CLI, and Claude Code.
+
+This repo is a skill catalog first. A skill being available here does not mean it is installed agent-globally everywhere.
+
+## OSS Distribution Model
+
+For open source, the intended distribution model is:
+
+1. publish the project as a **GitHub template repo**
+2. each user creates **their own repo** from that template, ideally private
+3. the user clones **their own repo**
+4. the user gives that repo to an AI agent
+5. the agent follows this README to onboard the system
+
+This README is the **pre-install onboarding contract** for that AI-led flow.
+
+The public template should seed only the system files plus `shared/manage-agent-skills` as the initial always-on skill. It does not need to include a large shared catalog.
+
+That usually means the public template should ship:
+
+- the repo structure and docs
+- agent adapters under `agents/`
+- bootstrap and migration helpers under `bootstrap/`
+- minimal agent-global manifests that install `shared/manage-agent-skills`
+- the `shared/manage-agent-skills` skill itself
+
+`manage-agent-skills` is one universal shared meta-skill. It should be installed for every selected agent during onboarding. Agent-specific differences belong in adapter files, not in separate copies of the meta-skill.
+
+## Universal Rulebook
+
+All supported agents follow the same repo-first lifecycle:
+
+1. create or import the skill into this repo first
+2. classify it as `shared` or `agent-specific`
+3. install it through manifests
+4. sync the generated install view
+
+That rule applies whether the skill starts as:
+
+- a brand-new skill
+- an existing catalog skill
+- a skill imported from GitHub or the internet
+- a skill adopted from an existing local agent setup
+
+Antigravity does not have a different lifecycle. It only adds one compatibility layer at install time.
+
+## Agentic Onboarding Contract
+
+An agent opening this repo for the first time should treat onboarding as a conversation with the user, not as a blind script run.
+
+### 1. Confirm repo ownership before mutating anything
+
+Inspect the current git remote and confirm whether this is the user's own template-derived repo.
+
+If the repo still points to the upstream public template, stop and guide the user to:
+
+1. create their own repo from the template
+2. clone that repo locally
+3. continue onboarding there
+
+Do not mutate the upstream public template clone as if it were the user's personal registry.
+
+### 2. Ask whether this is a fresh install or a migration
+
+The onboarding agent should ask whether the user wants:
+
+- **Fresh install**
+  Wire this repo into selected agents and start clean.
+- **Migrate existing global skills**
+  Scan current native agent-global roots, recommend classifications, and import approved skills into this repo before rewiring.
+
+### 3. Ask which agents to manage
+
+Supported agents:
+
+- `codex`
+- `gemini-cli`
+- `antigravity`
+- `claude-code`
+
+### 4A. Fresh install flow
+
+For a fresh machine or an empty native root, run:
+
+```bash
+python3 bootstrap/install_agent_skills.py --agent codex
+python3 bootstrap/install_agent_skills.py --agent gemini-cli
+python3 bootstrap/install_agent_skills.py --agent antigravity
+python3 bootstrap/install_agent_skills.py --agent claude-code
+```
+
+You can install multiple agents at once:
+
+```bash
+python3 bootstrap/install_agent_skills.py \
+  --agent codex \
+  --agent gemini-cli \
+  --agent antigravity \
+  --agent claude-code
+```
+
+If an unmanaged native skill root already exists and the user still wants a **fresh install instead of migration**, get explicit confirmation first, then rerun with:
+
+```bash
+python3 bootstrap/install_agent_skills.py \
+  --agent codex \
+  --replace-existing
+```
+
+`--replace-existing` backs up the unmanaged native root into `~/.agent-skills/backups/` and replaces it with this repo's generated agent-global view. It should only be used after the user explicitly chooses replacement over migration.
+
+### 4B. Migration flow
+
+Migration V1 handles **agent-global skills only**. Do not scan random projects on disk and do not attempt project-local migration yet.
+
+#### Discover existing native global skills
+
+```bash
+python3 bootstrap/discover_global_skills.py \
+  --agent codex \
+  --agent claude-code \
+  --output .agent-skills-discovery.json
+```
+
+The discovery report is deterministic. It inventories current native agent-global roots and visible skill folders. It does **not** classify them.
+
+#### Review and classify in batch
+
+After discovery, the onboarding agent should:
+
+1. read the discovery report
+2. inspect the actual skill contents
+3. recommend classification in **batch**
+4. group results into:
+   - recommended `shared`
+   - recommended `agent-specific`
+   - recommended `skip`
+5. explain every non-shared recommendation briefly
+6. ask the user to confirm or edit the batch before import
+
+Default migration policy:
+
+- recommend **shared** by default
+- recommend **agent-specific** only when a skill clearly depends on one harness
+- recommend **skip** for obsolete, broken, generated, or intentionally excluded skills
+
+The migration plan should be written to a machine-readable JSON file. See:
+
+- [migration-plan.example.json](templates/migration-plan.example.json)
+
+#### Apply the approved migration plan
+
+```bash
+python3 bootstrap/apply_global_skill_migration.py \
+  --plan .agent-skills-migration.json
+```
+
+That script will:
+
+- import approved skills into the catalog
+- update agent-global manifests to preserve what stays available
+- back up and replace existing unmanaged native roots
+- sync generated agent-global views
+- run `check`
+
+After apply, review the git diff and recommend an initial migration commit.
+
+### 5. Verify post-onboarding state
+
+After either fresh install or migration, verify the system with:
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py check
+```
+
+The onboarding is complete when the selected agents have `shared/manage-agent-skills` available agent-globally.
+
+That is important on purpose: after onboarding, the user should be able to ask any installed agent to create, install, promote, or recategorize skills through the same shared meta-skill workflow.
+
+## Which Document To Use
+
+- New machine, fresh install, or migration:
+  Start here in [README.md](README.md).
+- Working from any project after bootstrap:
+  Use [manage-agent-skills](skills/shared/manage-agent-skills/SKILL.md) as the operating manual.
+- Improving this template or a user's derived skills-registry repo:
+  Follow [AGENTS.md](AGENTS.md) or [CLAUDE.md](CLAUDE.md) when this repo is the active project.
+
+## System Model
+
+There are four layers:
+
+1. Catalog
+   The repo contains every available skill.
+2. Agent adapters
+   `agents/*.toml` defines how each harness maps the catalog into its own native skill locations.
+3. Agent-global install set
+   A small per-agent always-on view generated from `manifests/agent-global/<agent>.toml`.
+4. Project install set
+   A per-project opt-in view generated from a local `.agent-skills.toml`.
+
+A skill can be:
+
+- shared across agents
+- agent-specific
+- installed agent-globally
+- installed only in selected projects
+- available in the catalog but not installed anywhere yet
+
+Project installs are intentionally stricter than agent-global installs:
+
+- project installs are **shared-only**
+- agent-specific skills are **agent-global only**
+
+This separation is important. It keeps the catalog rich without forcing every agent to load every skill globally.
+
+## Layout
+
+```text
+skills/
+  shared/
+  antigravity/
+  claude-code/
+  codex/
+  gemini-cli/
+agents/
+  antigravity.toml
+  claude-code.toml
+  codex.toml
+  gemini-cli.toml
+manifests/
+  agent-global/
+    antigravity.toml
+    claude-code.toml
+    codex.toml
+    gemini-cli.toml
+templates/
+  migration-plan.example.json
+  project-manifest.toml
+bootstrap/
+  install_agent_skills.py
+  discover_global_skills.py
+  apply_global_skill_migration.py
+installs/
+  agent-global/
+    antigravity/
+    claude-code/
+    codex/
+    gemini-cli/
+```
+
+- `skills/shared/<skill>`: canonical source folder for cross-agent skills.
+- `skills/<agent>/<skill>`: canonical source folder for agent-specific skills.
+- `agents/<agent>.toml`: adapter definition for that harness's native global and project skill directories.
+- `manifests/agent-global/<agent>.toml`: declares which catalog skills are installed agent-globally for one agent only.
+- `bootstrap/discover_global_skills.py`: deterministic discovery helper for agent-global migration planning.
+- `bootstrap/apply_global_skill_migration.py`: deterministic migration executor that applies an approved plan.
+- `templates/migration-plan.example.json`: example machine-readable migration plan.
+- `installs/agent-global/<agent>/<skill>`: generated managed install view consumed directly or indirectly by that agent's global skill path.
+- `.agent-skills.toml` in a project: declares only shared catalog skills for that project.
+- `.agents/skills/` in a project: generated shared project-local symlink view.
+- `.claude/skills/` in a project: Claude-native mirror of the shared project skill set.
+
+## Agent Install Conventions
+
+After onboarding, the local agent roots should be managed from the generated agent-global install views:
+
+- `~/.gemini/antigravity/skills -> <repo>/installs/agent-global/antigravity`
+- `~/.claude/skills -> <repo>/installs/agent-global/claude-code`
+- `~/.codex/skills -> <repo>/installs/agent-global/codex`
+- `~/.gemini/skills -> <repo>/installs/agent-global/gemini-cli`
+
+Agent-global install materialization is adapter-driven, but the underlying lifecycle stays universal:
+
+- most agents use direct symlinks back to the real catalog sources under `skills/`
+- Antigravity uses real top-level skill directories whose contents link back to the catalog, because its skill scanner does not reliably discover symlinked top-level skill folders
+
+So the rule is:
+
+- all agents use the same repo-first source-of-truth model
+- Antigravity adds one compatibility layer over the final install materialization
+
+Either way, edits made through installed paths still write back to this repo.
+
+One important operational rule follows from this:
+
+- native agent skill folders are managed install surfaces
+- the repo catalog is still the canonical place to create new skills
+
+This matters most for Antigravity because its native global folder uses real top-level skill directories for compatibility.
+
+Shared project installs materialize from one manifest into both `.agents/skills` and any distinct native project directories defined by adapters. Today that means Claude Code gets the same shared project skills mirrored into `.claude/skills`.
+
+## Authoring Rules
+
+- Create new skills in `skills/shared/` by default.
+- Create new agent-specific skills directly in `skills/<agent>/`.
+- Do not auto-promote a skill to shared just because names happen to match.
+- Agent-specific skills are the exception path for real harness-specific behavior.
+- Shared means cross-agent compatible, not automatically installed agent-globally.
+- Agent-global and project installs are controlled by manifests, not by placing symlinks in the catalog.
+- Agent-global manifests use explicit refs like `shared/example-skill` or `codex/example-agent-skill`.
+- Editing `manifests/agent-global/codex.toml` should never be necessary to change Antigravity or Gemini CLI.
+- Adding support for a new harness should usually mean adding one adapter file under `agents/`, including its install strategy, not hard-coding more Python path logic.
+- Project installs are shared-only. If a skill is agent-specific, install it agent-globally instead.
+
+## Divergence Rule
+
+If a shared skill later needs agent-specific behavior, do not shadow it with the same name in one agent folder. Keep the shared skill intact and create a renamed agent-specific variant such as `my-skill-antigravity`.
+
+## Project Installs
+
+For a project-specific install, create or update `.agent-skills.toml` in the project root and then sync it:
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  install-project \
+  --project /path/to/project \
+  my-shared-skill
+```
+
+That command:
+
+- adds the skill to `/path/to/project/.agent-skills.toml`
+- creates or updates `/path/to/project/.agents/skills`
+- mirrors the same shared project skill into `/path/to/project/.claude/skills` when Claude support is present
+- materializes managed links back to this repo's catalog
+
+Project installs are shared-only. If you try to install `codex/...` or `antigravity/...` at project scope, the manager will reject it and direct you to agent-global manifests instead.
+
+This lets big skill collections live in the catalog without becoming global default baggage.
+
+## Agent-Global Manifests
+
+Each agent owns its own agent-global manifest file:
+
+- `manifests/agent-global/antigravity.toml`
+- `manifests/agent-global/claude-code.toml`
+- `manifests/agent-global/codex.toml`
+- `manifests/agent-global/gemini-cli.toml`
+
+Those files contain explicit catalog refs. Example:
+
+```toml
+skills = [
+  "shared/manage-agent-skills",
+  "shared/example-skill",
+  "codex/example-agent-skill",
+]
+```
+
+That means:
+
+- `shared` is only a source category
+- a shared skill is not installed anywhere unless an agent manifest explicitly includes it
+- one agent can add or remove a shared skill without modifying the other agents' settings
+
+## Day-to-Day Workflow
+
+- Before bootstrap or migration, follow the AI-led onboarding contract in this README.
+- Use plain git commands in this repo.
+- Use the `manage-agent-skills` skill or its bundled script for structural changes.
+- Treat `agents/*.toml` as the compatibility layer for native harness paths.
+- Workflows are still out of scope for this repo in V1.

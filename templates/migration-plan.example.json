@@ -1,0 +1,57 @@
+{
+  "format_version": 1,
+  "selected_agents": [
+    "codex"
+  ],
+  "migrations": [
+    {
+      "target_category": "shared",
+      "target_name": "example-skill",
+      "target_agent": null,
+      "install_agents": [
+        "codex"
+      ],
+      "preferred_source": "/absolute/path/to/existing/skill",
+      "sources": [
+        {
+          "agent": "codex",
+          "name": "example-skill",
+          "path": "/absolute/path/to/existing/skill"
+        }
+      ],
+      "reason": "Portable workflow skill; default shared recommendation."
+    },
+    {
+      "target_category": "agent-specific",
+      "target_name": "example-agent-only-skill",
+      "target_agent": "codex",
+      "install_agents": [
+        "codex"
+      ],
+      "preferred_source": "/absolute/path/to/existing/agent-only-skill",
+      "sources": [
+        {
+          "agent": "codex",
+          "name": "example-agent-only-skill",
+          "path": "/absolute/path/to/existing/agent-only-skill"
+        }
+      ],
+      "reason": "Uses harness-specific behavior and should stay agent-specific."
+    },
+    {
+      "target_category": "skip",
+      "target_name": null,
+      "target_agent": null,
+      "install_agents": [],
+      "preferred_source": "/absolute/path/to/existing/obsolete-skill",
+      "sources": [
+        {
+          "agent": "codex",
+          "name": "obsolete-skill",
+          "path": "/absolute/path/to/existing/obsolete-skill"
+        }
+      ],
+      "reason": "Obsolete or intentionally excluded from migration."
+    }
+  ]
+}

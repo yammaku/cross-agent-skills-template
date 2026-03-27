@@ -1,0 +1,5 @@
+name = "claude-code"
+native_global_skills_dir = "~/.claude/skills"
+native_project_skills_dir = ".claude/skills"
+preferred_instruction_files = ["CLAUDE.md", "AGENTS.md"]
+global_install_strategy = "symlinked-view"

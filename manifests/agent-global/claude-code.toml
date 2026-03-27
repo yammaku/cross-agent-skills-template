@@ -1,0 +1,4 @@
+# One agent only. Use explicit catalog refs like 'shared/example-skill' or 'claude-code/example-agent-skill'.
+skills = [
+  "shared/manage-agent-skills",
+]

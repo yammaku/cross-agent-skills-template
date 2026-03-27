@@ -1,0 +1,5 @@
+name = "antigravity"
+native_global_skills_dir = "~/.gemini/antigravity/skills"
+native_project_skills_dir = ".agents/skills"
+preferred_instruction_files = ["AGENTS.md"]
+global_install_strategy = "materialized-skill-dir"
