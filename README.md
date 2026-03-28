@@ -464,6 +464,7 @@ installs/
 - `.agents/skills/` in a project: preferred interoperable Agent Skills project surface.
 - `.codex/skills/` in a project: system-managed Codex compatibility mirror of the same shared project skill set.
 - `.claude/skills/` in a project: system-managed Claude Code compatibility mirror of the same shared project skill set.
+- `.gitignore` in a managed project should track `.agent-skills.toml` but ignore generated install surfaces such as `.agents/skills/`, `.codex/skills/`, `.claude/skills/`, the managed state file, and project backup folders.
 - `manage_agent_skills.py adopt-project --project /path/to/project`: explicit post-bootstrap flow for adopting unmanaged project-local skills into the shared registry.
 
 ## Agent Install Conventions
@@ -542,6 +543,7 @@ That command:
 - creates or updates `/path/to/project/.agents/skills`
 - mirrors the same shared project skill into native project paths such as `/path/to/project/.codex/skills` and `/path/to/project/.claude/skills` when those adapters are present
 - materializes managed links back to this repo's catalog
+- ensures `.gitignore` ignores the generated project install surfaces while keeping `.agent-skills.toml` tracked
 
 After project installs or project-surface fixes, validate the result with:
 

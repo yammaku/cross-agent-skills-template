@@ -22,6 +22,7 @@ This is one universal shared meta-skill. Do not create agent-specific copies of 
 - `manifests/agent-global/<agent>.toml` decides what is installed agent-globally for one agent.
 - Project `.agent-skills.toml` files decide what shared skills are installed inside individual projects.
 - Generated install views live under `installs/agent-global/<agent>` plus the project-local directories defined by each agent adapter.
+- In managed projects, `.agent-skills.toml` is tracked, while generated project install surfaces and backup folders should be gitignored.
 - Do not shadow a shared skill with the same name in one agent folder.
 - If a shared skill needs agent-specific behavior, create a renamed variant such as `my-skill-antigravity`.
 - Workflows are out of scope for this repo.
@@ -594,6 +595,8 @@ python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
   --project /path/to/project \
   gstack
 ```
+
+This also ensures the project's `.gitignore` ignores generated install surfaces such as `.agents/skills`, `.codex/skills`, `.claude/skills`, the managed state file, and project backup folders.
 
 ### Adopt unmanaged project-local skills into the registry
 

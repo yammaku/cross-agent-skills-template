@@ -146,6 +146,7 @@ bootstrap/
 - Migration V1 is agent-global only. Do not auto-scan or auto-import project-local skills during onboarding. Use the explicit `adopt-project` workflow after bootstrap when a project needs to bring local skills into the shared registry.
 - Project installs are shared-only, declared in `.agent-skills.toml`, and materialized into `.agents/skills` plus any distinct native project mirrors such as `.codex/skills` and `.claude/skills`.
 - `.agents/skills` is the preferred interoperable Agent Skills project surface from `agentskills.io`. `.codex/skills` and `.claude/skills` are compatibility mirrors of that same shared install set, not separate management systems or standards.
+- In managed projects, `.agent-skills.toml` should stay tracked, while generated project surfaces, the managed state file, and project skill backups should be gitignored.
 - Do not shadow a shared skill with the same name in an agent folder.
 - If a shared skill needs divergence, create a renamed variant such as `my-skill-antigravity`.
 - Do not auto-merge or auto-promote based on matching names alone.

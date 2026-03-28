@@ -39,6 +39,12 @@ NAME_RE = re.compile(r"^[a-z0-9-]+$")
 IGNORED_NAMES = {".DS_Store", "__pycache__"}
 PROJECT_LEGACY_INSTALL_DIR = Path(".agent") / "skills"
 PROJECT_BACKUPS_DIR = ".agent-skills-backups"
+PROJECT_GITIGNORE_COMMENT = "# Registry-managed project skills"
+PROJECT_GITIGNORE_STATIC_ENTRIES = (
+    ".agent-skills-backups/",
+    ".agent/skills/",
+    ".agents/.agent-skills-managed.project.toml",
+)
 
 SKILL_TEMPLATE = """---
 name: {name}
@@ -243,6 +249,51 @@ def visible_entry_names(path: Path) -> set[str]:
         for child in path.iterdir()
         if child.name not in IGNORED_NAMES
     }
+
+
+def project_gitignore_path(project: Path) -> Path:
+    return project / ".gitignore"
+
+
+def project_gitignore_entries(root: Path, project: Path) -> list[str]:
+    entries = list(PROJECT_GITIGNORE_STATIC_ENTRIES)
+    for install_dir, _strategy in project_install_targets(root, project):
+        relative = install_dir.relative_to(project).as_posix()
+        entry = f"{relative}/"
+        if entry not in entries:
+            entries.append(entry)
+    return entries
+
+
+def missing_project_gitignore_entries(root: Path, project: Path) -> list[str]:
+    path = project_gitignore_path(project)
+    if not path.exists():
+        return project_gitignore_entries(root, project)
+    lines = {line.strip() for line in path.read_text().splitlines() if line.strip()}
+    return [entry for entry in project_gitignore_entries(root, project) if entry not in lines]
+
+
+def ensure_project_gitignore(root: Path, project: Path) -> None:
+    path = project_gitignore_path(project)
+    existing_lines = path.read_text().splitlines() if path.exists() else []
+    existing_entries = {
+        line.strip() for line in existing_lines if line.strip() and not line.lstrip().startswith("#")
+    }
+    missing_entries = [
+        entry for entry in project_gitignore_entries(root, project) if entry not in existing_entries
+    ]
+    if not missing_entries:
+        return
+
+    lines = existing_lines[:]
+    if lines and lines[-1].strip():
+        lines.append("")
+
+    if PROJECT_GITIGNORE_COMMENT not in {line.strip() for line in lines}:
+        lines.append(PROJECT_GITIGNORE_COMMENT)
+    lines.extend(missing_entries)
+    lines.append("")
+    path.write_text("\n".join(lines))
 
 
 def empty_project_manifest() -> dict[str, set[str]]:
@@ -655,6 +706,7 @@ def sync_project(root: Path, project: Path) -> None:
             strategy=strategy,
         )
 
+    ensure_project_gitignore(root, project)
     write_project_managed_state(project, existing_names)
     print(
         "[OK] Project install view is synced. "
@@ -803,6 +855,13 @@ def check_project(root: Path, project: Path) -> None:
             f"{state_label} names do not match .agent-skills.toml "
             f"(expected: {', '.join(sorted(desired_names)) or 'none'}; "
             f"actual: {', '.join(sorted(managed_names)) or 'none'})"
+        )
+
+    missing_gitignore = missing_project_gitignore_entries(root, project)
+    if missing_gitignore:
+        issues.append(
+            ".gitignore is missing generated project-surface entries: "
+            + ", ".join(missing_gitignore)
         )
 
     for surface_dir, strategy in project_install_targets(root, project):

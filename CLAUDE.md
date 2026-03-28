@@ -36,6 +36,7 @@ This repo is the public minimal template, not the user's lived-in private regist
 - README is the AI-led onboarding contract for fresh install and migration.
 - Project installs are shared-only. They live in a project's `.agent-skills.toml` and materialize into `.agents/skills` plus native mirrors such as `.codex/skills` and `.claude/skills` for host-specific discovery.
 - Treat `.agents/skills` as the preferred interoperable Agent Skills surface. Native mirrors such as `.codex/skills` and `.claude/skills` are compatibility projections of the same shared install set, not separate ownership domains or separate standards.
+- In managed projects, `.agent-skills.toml` should stay tracked, while generated project surfaces, the managed state file, and project skill backups should be gitignored.
 - When project skill discovery differs across harnesses, assume the problem is materialization shape before assuming the system needs another authoring surface.
 - Onboarding migration stays agent-global only. Explicit post-bootstrap project-local adoption belongs in `manage_agent_skills.py adopt-project`.
 - On an already managed machine, resolve repo git state before running `sync-agent-global` or `sync-project`.
