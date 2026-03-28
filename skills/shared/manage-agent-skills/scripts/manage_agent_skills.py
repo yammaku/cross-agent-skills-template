@@ -235,6 +235,16 @@ def project_candidate_skill_roots(root: Path, project: Path) -> list[Path]:
     return paths
 
 
+def visible_entry_names(path: Path) -> set[str]:
+    if not path.is_dir():
+        return set()
+    return {
+        child.name
+        for child in path.iterdir()
+        if child.name not in IGNORED_NAMES
+    }
+
+
 def empty_project_manifest() -> dict[str, set[str]]:
     return {"shared": set()}
 
@@ -651,6 +661,160 @@ def sync_project(root: Path, project: Path) -> None:
         "Shared project surfaces updated "
         f"(previous managed profile: {previous_agent or 'none'})."
     )
+
+
+def relative_project_label(project: Path, path: Path) -> str:
+    try:
+        return path.relative_to(project).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def check_materialized_project_skill(
+    project: Path,
+    surface_dir: Path,
+    name: str,
+    source: Path,
+    issues: list[str],
+) -> None:
+    dest = surface_dir / name
+    label = f"{relative_project_label(project, surface_dir)}/{name}"
+    if not exists_or_link(dest):
+        issues.append(f"{label} is missing")
+        return
+    if dest.is_symlink():
+        issues.append(f"{label} should be a real directory")
+        return
+    if not dest.is_dir():
+        issues.append(f"{label} must be a directory")
+        return
+
+    desired_children = visible_entry_names(source)
+    actual_children = visible_entry_names(dest)
+    for child_name in sorted(desired_children - actual_children):
+        issues.append(f"{label}/{child_name} is missing")
+    for child_name in sorted(actual_children - desired_children):
+        issues.append(f"{label}/{child_name} is extra")
+
+    for child_name in sorted(desired_children & actual_children):
+        dest_child = dest / child_name
+        source_child = source / child_name
+        child_label = f"{label}/{child_name}"
+        if not dest_child.is_symlink():
+            issues.append(f"{child_label} should be a symlink")
+            continue
+        try:
+            resolved = dest_child.resolve()
+        except FileNotFoundError:
+            issues.append(f"{child_label} points to a missing target")
+            continue
+        if resolved != source_child.resolve():
+            issues.append(f"{child_label} points to the wrong target")
+
+
+def check_symlinked_project_skill(
+    project: Path,
+    surface_dir: Path,
+    name: str,
+    source: Path,
+    issues: list[str],
+) -> None:
+    dest = surface_dir / name
+    label = f"{relative_project_label(project, surface_dir)}/{name}"
+    if not exists_or_link(dest):
+        issues.append(f"{label} is missing")
+        return
+    if not dest.is_symlink():
+        issues.append(f"{label} should be a symlink")
+        return
+    try:
+        resolved = dest.resolve()
+    except FileNotFoundError:
+        issues.append(f"{label} points to a missing target")
+        return
+    if resolved != source.resolve():
+        issues.append(f"{label} points to the wrong target")
+
+
+def check_project_surface(
+    project: Path,
+    surface_dir: Path,
+    strategy: str,
+    desired: dict[str, Path],
+    issues: list[str],
+) -> None:
+    label = relative_project_label(project, surface_dir)
+
+    if not exists_or_link(surface_dir):
+        if desired:
+            issues.append(f"{label} is missing")
+        return
+    if surface_dir.is_symlink():
+        issues.append(f"{label} should be a real directory")
+        return
+    if not surface_dir.is_dir():
+        issues.append(f"{label} must be a directory")
+        return
+
+    actual_names = visible_entry_names(surface_dir)
+    desired_names = set(desired.keys())
+    for name in sorted(desired_names - actual_names):
+        issues.append(f"{label}/{name} is missing")
+    for name in sorted(actual_names - desired_names):
+        issues.append(f"{label}/{name} is extra")
+
+    for name in sorted(desired_names & actual_names):
+        source = desired[name]
+        if strategy == GLOBAL_INSTALL_STRATEGY_MATERIALIZED_SKILL_DIR:
+            check_materialized_project_skill(project, surface_dir, name, source, issues)
+        elif strategy == GLOBAL_INSTALL_STRATEGY_SYMLINKED_VIEW:
+            check_symlinked_project_skill(project, surface_dir, name, source, issues)
+        else:
+            issues.append(f"{label} uses unknown strategy '{strategy}'")
+
+
+def check_project(root: Path, project: Path) -> None:
+    manifest_path = project_manifest_path(project)
+    if not manifest_path.exists():
+        raise SkillRepoError(
+            f"Project does not track {manifest_path.name}: {manifest_path}. "
+            "Use install-project or adopt-project first."
+        )
+
+    manifest = read_project_manifest(manifest_path)
+    desired: dict[str, Path] = {}
+    issues: list[str] = []
+    for name in sorted(manifest["shared"]):
+        source = skill_path(shared_dir(root), name)
+        if not source.is_dir() or source.is_symlink():
+            issues.append(f".agent-skills.toml references missing shared skill '{name}'")
+            continue
+        desired[name] = source
+
+    profile, managed_names = read_project_managed_state(project)
+    state_label = relative_project_label(project, project_managed_state_path(project))
+    desired_names = set(desired.keys())
+    if desired_names and profile is None:
+        issues.append(f"{state_label} is missing")
+    elif profile is not None and profile != "shared-project":
+        issues.append(f"{state_label} has unexpected profile '{profile}'")
+    if profile is not None and managed_names != desired_names:
+        issues.append(
+            f"{state_label} names do not match .agent-skills.toml "
+            f"(expected: {', '.join(sorted(desired_names)) or 'none'}; "
+            f"actual: {', '.join(sorted(managed_names)) or 'none'})"
+        )
+
+    for surface_dir, strategy in project_install_targets(root, project):
+        check_project_surface(project, surface_dir, strategy, desired, issues)
+
+    if issues:
+        print("[ERROR] Project skill check failed:")
+        for issue in issues:
+            print(f" - {issue}")
+        raise SystemExit(1)
+
+    print("[OK] Project skill check passed.")
 
 
 def discover_project_adopt_names(
@@ -1141,6 +1305,11 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "check", help="Validate catalog and agent-global install invariants."
     )
+    check_project_parser = subparsers.add_parser(
+        "check-project",
+        help="Validate one project's .agent-skills.toml and generated project install surfaces.",
+    )
+    check_project_parser.add_argument("--project", required=True)
     return parser
 
 
@@ -1215,6 +1384,8 @@ def main() -> None:
             sync_project(root, project)
         elif args.command == "check":
             check(root)
+        elif args.command == "check-project":
+            check_project(root, Path(args.project).expanduser().resolve())
     except SkillRepoError as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
         raise SystemExit(1)

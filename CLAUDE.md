@@ -39,6 +39,7 @@ This repo is the public minimal template, not the user's lived-in private regist
 - When project skill discovery differs across harnesses, assume the problem is materialization shape before assuming the system needs another authoring surface.
 - Onboarding migration stays agent-global only. Explicit post-bootstrap project-local adoption belongs in `manage_agent_skills.py adopt-project`.
 - On an already managed machine, resolve repo git state before running `sync-agent-global` or `sync-project`.
+- Treat project-level validation as first-class too. `check` only covers the catalog and agent-global install views; use `check-project --project <path>` when changing project install behavior or debugging project mirrors.
 - Do not hard-code the repo path.
 - Do not shadow a shared skill with the same name in an agent folder.
 - If a shared skill needs divergence, create a renamed agent-specific variant.
@@ -64,8 +65,9 @@ When changing this repo:
 
 1. run the relevant management operation
 2. run `check`
-3. review `git diff`
-4. commit in this repo
-5. push when the user asks to publish the update
+3. if project-level behavior was touched, run `check-project --project <representative-project>` too
+4. review `git diff`
+5. commit in this repo
+6. push when the user asks to publish the update
 
 Remember that publishing this template and publishing the private live registry are separate actions.

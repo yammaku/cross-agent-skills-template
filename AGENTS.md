@@ -174,6 +174,7 @@ bootstrap/
   - repo-local guide files like [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md)
 - Keep bootstrap and post-bootstrap responsibilities separate.
 - Keep multi-machine sync explicit: repo git state must be resolved before running `sync-agent-global` or `sync-project` on an already managed machine.
+- Treat project-level validation as first-class too. `check` only covers the catalog and agent-global install views; use `check-project --project <path>` when changing project install behavior or debugging project mirrors.
 - Keep workflows out of this repo for V1 unless the user explicitly expands scope.
 - Bias toward explicit manifests and deterministic scripts over undocumented convention.
 - When importing a change from the private live repo, productize it here instead of copying private operational baggage.
@@ -187,9 +188,10 @@ When you change catalog structure, skill contents, manifests, or lifecycle behav
 
 1. Run the relevant `manage_agent_skills.py` operation.
 2. Run `check`.
-3. Review `git diff` in this repo.
-4. Commit in this repo.
-5. Push when the user asks to publish or sync the change upstream.
+3. If project-level behavior was touched, run `check-project --project <representative-project>` too.
+4. Review `git diff` in this repo.
+5. Commit in this repo.
+6. Push when the user asks to publish or sync the change upstream.
 
 Remember that template publishing and private live-registry publishing are separate actions. Updating this repo does not update the user's private registry, and vice versa.
 

@@ -243,6 +243,8 @@ Use the matching operation:
   Follow the multi-machine sync protocol below.
 - You want to verify repo invariants before or after changes:
   Run `check`.
+- You want to verify one project's manifest and generated install surfaces:
+  Run `check-project`.
 
 ## Project Manifest Guardrail
 
@@ -630,6 +632,16 @@ Validates the catalog and generated install invariants.
 
 ```bash
 python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py check
+```
+
+### Check one project
+
+Validates one project's `.agent-skills.toml`, managed state file, and generated project install surfaces such as `.agents/skills`, `.codex/skills`, and `.claude/skills`.
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  check-project \
+  --project /path/to/project
 ```
 
 ## Notes

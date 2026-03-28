@@ -372,6 +372,14 @@ The onboarding is complete when the selected agents have `shared/manage-agent-sk
 
 That is important on purpose: after onboarding, the user should be able to ask any installed agent to create, install, promote, or recategorize skills through the same shared meta-skill workflow.
 
+For project-level verification after a repo already tracks `.agent-skills.toml`, use:
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  check-project \
+  --project /path/to/project
+```
+
 ## Which Document To Use
 
 - New machine, fresh install, or migration:
@@ -534,6 +542,14 @@ That command:
 - creates or updates `/path/to/project/.agents/skills`
 - mirrors the same shared project skill into native project paths such as `/path/to/project/.codex/skills` and `/path/to/project/.claude/skills` when those adapters are present
 - materializes managed links back to this repo's catalog
+
+After project installs or project-surface fixes, validate the result with:
+
+```bash
+python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
+  check-project \
+  --project /path/to/project
+```
 
 Project installs are shared-only. If you try to install `codex/...` or `antigravity/...` at project scope, the manager will reject it and direct you to agent-global manifests instead.
 
