@@ -107,7 +107,7 @@ The README owns:
 
 This skill takes over only after onboarding has installed `shared/manage-agent-skills` into the selected agents' agent-global views.
 
-Codex and Claude Code are supported through the same onboarding flow. Their adapters map agent-global installs to `~/.codex/skills` and `~/.claude/skills`, and mirror shared project installs into `.codex/skills` and `.claude/skills`.
+Codex and Claude Code are supported through the same onboarding flow. Their adapters map agent-global installs to `~/.codex/skills` and `~/.claude/skills`, and may project shared project installs into `.codex/skills` and `.claude/skills` as managed compatibility mirrors.
 
 ## Scope Boundary
 
@@ -165,8 +165,12 @@ Current examples:
 
 - Codex, Gemini CLI, and Claude Code can consume symlinked agent-global views.
 - Antigravity requires real top-level skill directories in its native global path.
-- Shared project install surfaces are materialized per adapter. The interoperable `.agents/skills` path remains a real top-level skill directory view with linked contents, while native mirrors such as `.codex/skills` and `.claude/skills` can use the host-specific shape they need.
-- Codex project mirrors should use top-level directory symlinks to canonical shared skills. That preserves the catalog as source of truth while letting Codex resolve `.codex/skills/<skill>/SKILL.md` as a normal file path.
+- Shared project installs still come from one shared manifest and one shared catalog. The ideal interoperable surface is `.agents/skills`, because that is the public Agent Skills standard from `agentskills.io`.
+- `.codex/skills` and `.claude/skills` in this system are managed compatibility mirrors, not separate standards and not separate authoring surfaces.
+- Shared project install surfaces are materialized per adapter. The interoperable `.agents/skills` path remains a real top-level skill directory view with linked contents, while compatibility mirrors such as `.codex/skills` and `.claude/skills` can use the host-specific shape they need.
+- Antigravity and Codex have been observed to disagree about symlink granularity for project-scoped skills. Antigravity needs real top-level skill directories with linked contents; Codex reliably accepts top-level directory symlinks to canonical skill folders.
+- Codex project mirrors should therefore use top-level directory symlinks to canonical shared skills. That preserves the catalog as source of truth while letting Codex resolve `.codex/skills/<skill>/SKILL.md` as a normal file path.
+- Treat `.agents/skills`, `.codex/skills`, and `.claude/skills` as three views over one shared install set. Never reason about them as separate skill systems.
 
 Those differences are an adapter concern, not a reason to fork the meta-skill.
 
@@ -273,6 +277,11 @@ In practice, this means:
 
 - if the user asks to install or remove a project skill, the skill may sync the project first before applying the new change
 - if the user asks for project skill help and `.agent-skills.toml` already exists, check whether `.agents/skills`, `.codex/skills`, `.claude/skills`, and other project install surfaces need regeneration
+- if one harness discovers a project skill and another does not, do not assume the manifest is wrong. First separate:
+  1. whether the shared catalog entry exists
+  2. whether the project manifest installs it
+  3. whether each managed surface was regenerated
+  4. whether the failing harness rejects the current symlink granularity
 - if everything is already clearly in sync, continue without redundant work
 
 ## Human Intent Playbook
@@ -644,7 +653,7 @@ python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py check
 - If a name collision happens, stop and resolve the ownership question instead of forcing a move.
 - If an agent already has a real folder with the same name as a shared skill, treat that as a system inconsistency and fix it deliberately.
 - `adopt-project` is the explicit path for bringing unmanaged project-local skills into the registry after bootstrap. Keep onboarding migration focused on agent-global roots.
-- Installing a skill agent-globally or into a project does not copy the skill. It creates symlinks back to the canonical source in this repo.
-- Agent-global installs may be materialized differently per adapter. For example, Antigravity uses real top-level skill dirs with linked contents, while Codex, Gemini CLI, and Claude Code can consume direct symlinked views.
+- Installing a skill agent-globally or into a project does not create a second source of truth. It creates managed views back to the canonical source in this repo.
+- Those managed views may differ per adapter. For example, Antigravity uses real top-level skill dirs with linked contents, while Codex project mirrors use top-level directory symlinks and other harnesses may consume direct symlinked views.
 - Bare skill names are allowed in commands for convenience, but agent-global manifests are stored using explicit refs.
 - Project commands accept shared skills only. Agent-specific refs must be handled through agent-global commands.

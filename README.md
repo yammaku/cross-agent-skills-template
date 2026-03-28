@@ -138,7 +138,25 @@ That rule applies whether the skill starts as:
 
 Antigravity does not have a different lifecycle. It only adds one compatibility layer at install time.
 
+The ideal shared project surface is `.agents/skills` because it matches the public Agent Skills standard from `agentskills.io`. In practice, harness loaders have filesystem quirks, so the same shared project install may need to be projected into three managed surfaces:
+
+- `.agents/skills`
+- `.claude/skills`
+- `.codex/skills`
+
+Those are compatibility views over one shared catalog and one shared project manifest, not three separate skill-management systems.
+
+Only `.agents/skills` is the standard interoperable project surface. `.claude/skills` and `.codex/skills` are system-managed compatibility projections used by this registry to accommodate harness-specific discovery behavior.
+
 For project installs, shared skill surfaces are materialized per adapter. The interoperable `.agents/skills` surface stays as real top-level skill directories with linked contents, while native mirrors such as `.codex/skills` and `.claude/skills` can use the on-disk shape their host expects.
+
+Why this extra projection exists:
+
+- Antigravity and Codex have been observed to disagree about symlink granularity in project-scoped skill discovery.
+- Antigravity needs real top-level skill directories whose inner files link back to the catalog.
+- Codex reliably accepts top-level symlinked skill directories, but did not reliably discover the Antigravity-style file-level linked shape we used inside `.agents/skills`.
+
+This registry resolves that mismatch by keeping one shared catalog and one shared project manifest, then projecting the same install set into whichever compatibility surfaces a harness needs.
 
 After onboarding, `.agent-skills.toml` is the project-level source of truth. When an agent is using `manage-agent-skills` inside a project that already tracks `.agent-skills.toml`, it should treat that manifest as desired state and run `sync-project` before project-scope skill work if the local project install surfaces are missing, stale, or unclear.
 
@@ -435,9 +453,9 @@ installs/
 - `templates/migration-plan.example.json`: example machine-readable migration plan.
 - `installs/agent-global/<agent>/<skill>`: generated managed install view consumed directly or indirectly by that agent's global skill path.
 - `.agent-skills.toml` in a project: declares only shared catalog skills for that project.
-- `.agents/skills/` in a project: generated interoperable shared project skill view.
-- `.codex/skills/` in a project: Codex-native mirror of the shared project skill set.
-- `.claude/skills/` in a project: Claude-native mirror of the shared project skill set.
+- `.agents/skills/` in a project: preferred interoperable Agent Skills project surface.
+- `.codex/skills/` in a project: system-managed Codex compatibility mirror of the same shared project skill set.
+- `.claude/skills/` in a project: system-managed Claude Code compatibility mirror of the same shared project skill set.
 - `manage_agent_skills.py adopt-project --project /path/to/project`: explicit post-bootstrap flow for adopting unmanaged project-local skills into the shared registry.
 
 ## Agent Install Conventions
@@ -471,6 +489,16 @@ This matters most for Antigravity because its native global folder uses real top
 Shared project installs materialize from one manifest into both `.agents/skills` and any distinct native project directories defined by adapters. Today that means Codex gets the same shared project skills mirrored into `.codex/skills`, and Claude Code gets them mirrored into `.claude/skills`.
 Codex project mirrors should be top-level directory symlinks to the canonical shared skill directories. That keeps edits flowing back to the catalog while still letting Codex resolve `.codex/skills/<skill>/SKILL.md` as a normal file path.
 
+Do not read this as a claim that `.codex/skills` or `.claude/skills` are part of the Agent Skills standard. In this system they are compatibility outputs maintained by the adapters.
+
+The key design boundary is:
+
+- the catalog decides what the skill is
+- the project manifest decides whether it is installed
+- adapter-specific mirrors only decide how that same install is projected for each harness
+
+Do not treat `.agents/skills`, `.claude/skills`, and `.codex/skills` as different ownership domains.
+
 ## Authoring Rules
 
 - Create new skills in `skills/shared/` by default.
@@ -483,6 +511,7 @@ Codex project mirrors should be top-level directory symlinks to the canonical sh
 - Editing `manifests/agent-global/codex.toml` should never be necessary to change Antigravity or Gemini CLI.
 - Adding support for a new harness should usually mean adding one adapter file under `agents/`, including its install strategy, not hard-coding more Python path logic.
 - Project installs are shared-only. If a skill is agent-specific, install it agent-globally instead.
+- Never solve a harness discovery mismatch by introducing a second authoring surface. Fix the managed projection shape instead.
 
 ## Divergence Rule
 
