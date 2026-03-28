@@ -161,16 +161,24 @@ When using this skill, always:
 
 Do not assume every agent consumes the same on-disk install shape.
 
-Current examples:
+## Compatibility Layer
 
-- Codex, Gemini CLI, and Claude Code can consume symlinked agent-global views.
-- Antigravity requires real top-level skill directories in its native global path.
-- Shared project installs still come from one shared manifest and one shared catalog. The ideal interoperable surface is `.agents/skills`, because that is the public Agent Skills standard from `agentskills.io`.
+Keep the model simple:
+
+- one shared catalog
+- one shared project manifest
+- one shared install set
+- multiple managed compatibility surfaces when a harness needs them
+
+Rules:
+
+- `.agents/skills` is the standard project surface from `agentskills.io`.
 - `.codex/skills` and `.claude/skills` in this system are managed compatibility mirrors, not separate standards and not separate authoring surfaces.
-- Shared project install surfaces are materialized per adapter. The interoperable `.agents/skills` path remains a real top-level skill directory view with linked contents, while compatibility mirrors such as `.codex/skills` and `.claude/skills` can use the host-specific shape they need.
-- Antigravity and Codex have been observed to disagree about symlink granularity for project-scoped skills. Antigravity needs real top-level skill directories with linked contents; Codex reliably accepts top-level directory symlinks to canonical skill folders.
-- Codex project mirrors should therefore use top-level directory symlinks to canonical shared skills. That preserves the catalog as source of truth while letting Codex resolve `.codex/skills/<skill>/SKILL.md` as a normal file path.
-- Treat `.agents/skills`, `.codex/skills`, and `.claude/skills` as three views over one shared install set. Never reason about them as separate skill systems.
+- Antigravity's native global scanner needs real top-level skill directories whose contents link back to the catalog.
+- Codex, Gemini CLI, and Claude Code can consume symlinked agent-global views.
+- For project installs, Antigravity-style interoperable views use real top-level skill directories with linked contents.
+- Codex project mirrors should use top-level directory symlinks to canonical shared skills.
+- If one harness sees a project skill and another does not, suspect install projection shape or symlink granularity before suspecting the catalog or manifest.
 
 Those differences are an adapter concern, not a reason to fork the meta-skill.
 
@@ -198,37 +206,14 @@ If the source is unclear, default to `shared` unless the skill clearly depends o
 
 ## Repo-First Creation Rule
 
-For every agent, including Antigravity:
+For every agent:
 
 - create new skills in the repo catalog first
 - then install or sync them into the relevant agent or project view
 
 Do not create a brand-new global skill directly inside a native agent folder and treat that as authoritative.
 
-This is especially important for Antigravity because its native global folder is materialized for compatibility and can contain real top-level directories.
-
-Editing existing managed Antigravity skills is safe because their contents link back to the repo. Creating a brand-new skill directly there is not the source-of-truth path.
-
-## Antigravity Compatibility Layer
-
-Antigravity follows the same universal lifecycle as every other agent.
-
-It adds one extra compatibility rule:
-
-- its native global skill scanner requires real top-level skill directories
-
-So Antigravity's adapter materializes real top-level skill folders whose contents link back to the repo catalog. That means its native global folder is still managed output, not a source-of-truth exception.
-
-In practice, the extra rule is:
-
-If the current agent is Antigravity:
-
-- never create a new global skill by writing directly into `~/.gemini/antigravity/skills/<name>`
-- treat `~/.gemini/antigravity/skills` as managed output only
-- create the skill in `skills/shared/` or `skills/antigravity/` first
-- then sync or install it through this system
-
-If you discover an unmanaged native Antigravity skill folder, treat it as an adoption or migration case, not as canonical source by default.
+This is easiest to get wrong on Antigravity because its native global folder can contain real top-level directories. Treat those as managed output, not a second source of truth.
 
 ## Decision Guide
 
@@ -354,7 +339,7 @@ Default operation:
 2. Fill in or improve the skill content
 3. Run `install-agent-global --agent <current-agent> ...`
 
-For Antigravity, this repo-first flow is mandatory because its native global folder is a managed materialization surface.
+This repo-first flow is mandatory for every agent.
 
 ### 4B. "Adopt these existing project-local skills into our registry"
 
