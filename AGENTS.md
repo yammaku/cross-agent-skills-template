@@ -25,6 +25,22 @@ This repo is both:
 - a small product that generates agent-global and project-local install views from manifests
 - a universal shared meta-skill that teaches agents how to operate the system safely
 
+## Template Boundary
+
+This repo is the public, distributable template version of the system. It is not the user's lived-in private registry.
+
+Treat it as:
+
+- the productized minimal starter
+- the public distribution surface
+- the place where reusable system behavior should remain clean and understandable to new users
+
+Do not let it drift into a copy of the private live registry.
+
+The private sibling repo currently lives at:
+
+- [agent-skills](/Users/yammaku/Documents/Projects/agent-skills)
+
 ## Document Roles
 
 Treat the docs as layered on purpose:
@@ -65,6 +81,24 @@ Keep these concepts separate too:
 - `project` means installed only for one project
 
 Never treat `shared` as "automatically installed everywhere."
+
+## Public Template Boundary
+
+Keep the template intentionally minimal.
+
+It should usually contain:
+
+- system files
+- adapters
+- bootstrap and migration helpers
+- minimal manifests
+- seed skills such as `manage-agent-skills`
+
+It should not casually absorb:
+
+- the user's private catalog
+- large personal manifest sets
+- one-off experiments that are not part of the product contract
 
 ## Canonical Layout
 
@@ -134,6 +168,8 @@ bootstrap/
 - Keep multi-machine sync explicit: repo git state must be resolved before running `sync-agent-global` or `sync-project` on an already managed machine.
 - Keep workflows out of this repo for V1 unless the user explicitly expands scope.
 - Bias toward explicit manifests and deterministic scripts over undocumented convention.
+- When importing a change from the private live repo, productize it here instead of copying private operational baggage.
+- If a change only serves the private live registry, keep it out of this template.
 
 ## Git Workflow
 
@@ -146,6 +182,8 @@ When you change catalog structure, skill contents, manifests, or lifecycle behav
 3. Review `git diff` in this repo.
 4. Commit in this repo.
 5. Push when the user asks to publish or sync the change upstream.
+
+Remember that template publishing and private live-registry publishing are separate actions. Updating this repo does not update the user's private registry, and vice versa.
 
 Remember:
 

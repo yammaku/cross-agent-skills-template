@@ -22,6 +22,8 @@ It contains:
 - generated install views under `installs/agent-global/`
 - bootstrap and migration tooling for onboarding a new machine
 
+This repo is the public minimal template, not the user's lived-in private registry. Its private sibling currently lives at [agent-skills](/Users/yammaku/Documents/Projects/agent-skills).
+
 ## Key Rules
 
 - All agents follow the same repo-first lifecycle: create or import into the repo, classify, install through manifests, sync, and validate.
@@ -38,6 +40,7 @@ It contains:
 - Do not hard-code the repo path.
 - Do not shadow a shared skill with the same name in an agent folder.
 - If a shared skill needs divergence, create a renamed agent-specific variant.
+- Keep the template minimal and productized. Do not copy private catalog history or private manifest clutter into it.
 
 ## Doc Boundary
 
@@ -62,3 +65,5 @@ When changing this repo:
 3. review `git diff`
 4. commit in this repo
 5. push when the user asks to publish the update
+
+Remember that publishing this template and publishing the private live registry are separate actions.
