@@ -131,6 +131,7 @@ bootstrap/
   - [skills/shared/manage-agent-skills/SKILL.md](skills/shared/manage-agent-skills/SKILL.md)
   - repo-local guide files like [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md)
 - Keep bootstrap and post-bootstrap responsibilities separate.
+- Keep multi-machine sync explicit: repo git state must be resolved before running `sync-agent-global` or `sync-project` on an already managed machine.
 - Keep workflows out of this repo for V1 unless the user explicitly expands scope.
 - Bias toward explicit manifests and deterministic scripts over undocumented convention.
 

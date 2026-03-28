@@ -245,6 +245,8 @@ Use the matching operation:
   Run `remove-project`.
 - Generated install views drift:
   Run `sync-agent-global` or `sync-project`.
+- The user says "sync skills" on a machine that already uses this system:
+  Follow the multi-machine sync protocol below.
 - You want to verify repo invariants before or after changes:
   Run `check`.
 
@@ -437,6 +439,7 @@ If a request would both recategorize a skill and broaden where it is installed, 
 7. Run `check` after structural changes.
 8. Use plain git commands in the configured skills-registry repo to review, commit, and push.
 9. If compatibility behavior changed, update the relevant file under `agents/` and the docs that describe the lifecycle.
+10. If the user asks to "sync skills" on an already managed machine, follow the multi-machine sync protocol before any install sync.
 
 If the current agent is Antigravity, be extra deliberate about step 1. Do not create a new skill folder directly in `~/.gemini/antigravity/skills`; always start from the repo operation first.
 
@@ -469,9 +472,54 @@ Keep the distinction clear:
 
 When another machine needs the update, the intended flow is:
 
-1. pull the latest skills-registry repo
-2. run bootstrap if the machine is new
-3. otherwise rerun `sync-agent-global` or the relevant `sync-project` operation if needed
+1. if the machine is new, return to the onboarding README
+2. otherwise inspect the skills-registry repo's git state first
+3. only after the repo state is resolved, run `sync-agent-global`
+4. if the current project repo has `.agent-skills.toml`, run `sync-project --project <project-root>`
+
+## Multi-Machine Sync Protocol
+
+When the user says "sync skills" on a machine that already uses this system, do not interpret that as "blindly pull and then sync installs."
+
+Use this protocol:
+
+1. treat the skills-registry repo as the cross-machine source of truth
+2. if you are currently working inside another project repo, keep that separate in your head:
+   - the project repo is only a consumer of project-level installs
+   - it is not the source of truth for the shared skill catalog
+3. inspect the skills-registry repo's git state before any install sync
+4. only after the skills-registry repo state is resolved, materialize that state onto the current machine
+
+Check at least:
+
+- whether the working tree is dirty
+- whether the local branch is ahead of remote
+- whether it is behind remote
+- whether local and remote have diverged
+
+Then branch:
+
+- clean and only **behind** remote:
+  1. pull with a safe fast-forward workflow
+  2. run `sync-agent-global`
+  3. if the current project repo has `.agent-skills.toml`, run `sync-project --project <project-root>`
+- clean and only **ahead** of remote:
+  1. do not pull blindly
+  2. tell the user this machine has unpushed commits
+  3. ask whether to push first or only sync local install surfaces from the current local skills-registry repo state
+- **diverged** local and remote:
+  1. stop before install sync
+  2. explain that both local and remote have commits
+  3. resolve merge or rebase deliberately before materializing installs
+- **dirty** working tree:
+  1. stop before pull
+  2. ask whether to commit, stash, or discard local changes
+
+Important distinction:
+
+- repo sync can be bidirectional because multiple machines may edit the repo
+- install sync is always local materialization from the resolved skills-registry repo state
+- `sync skills` is primarily about synchronizing the skills-registry repo; project repos only get their `.agent-skills.toml` installs materialized afterward when relevant
 
 ## Adapter Lifecycle
 

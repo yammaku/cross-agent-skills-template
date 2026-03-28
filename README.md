@@ -51,6 +51,35 @@ It should only ask you to choose when there is a real branch to decide, for exam
 
 Fresh install does **not** silently overwrite unmanaged local skill roots. If they already exist, the system will stop and ask for confirmation.
 
+### If this machine already uses this system and you want to "sync skills"
+
+The right mental model is:
+
+- repo sync first
+- install sync second
+
+There may be two repos in play:
+
+- **repo B**: your skills-registry repo, which owns the catalog, manifests, and source of truth
+- **repo A**: the current project repo you may be working in, which may contain `.agent-skills.toml`
+
+In other words, "sync skills" on an already managed machine does **not** mean "blindly pull and overwrite local state."
+
+It means:
+
+1. inspect the git state of the skills-registry repo first
+2. resolve whether that repo should pull, push, or stop for conflict handling
+3. only after the skills-registry repo state is clear, sync the local install surfaces
+
+So `sync skills` means:
+
+- first, sync **repo B**
+- then, if the current context is **repo A** and it tracks `.agent-skills.toml`, materialize that project's shared skill installs too
+
+The AI agent should handle that for you. In normal use, you can just give your private repo to the agent and say:
+
+`Read this README first. This machine already uses this system. Sync skills for this machine.`
+
 ## Start Here
 
 If you are handing this repo to an AI agent, a good starter prompt is:
@@ -103,6 +132,13 @@ For project installs, shared skill surfaces are materialized as real top-level s
 
 After onboarding, `.agent-skills.toml` is the project-level source of truth. When an agent is using `manage-agent-skills` inside a project that already tracks `.agent-skills.toml`, it should treat that manifest as desired state and run `sync-project` before project-scope skill work if the local project install surfaces are missing, stale, or unclear.
 
+For multi-machine use, keep this distinction clear:
+
+- the skills-registry git repo is the cross-machine source of truth
+- `sync-agent-global` always applies the skills-registry repo state onto the current machine
+- `sync-project` applies that same resolved skills-registry state into one project repo that declares `.agent-skills.toml`
+- install surfaces do not sync to each other directly across machines
+
 ## Agentic Onboarding Contract
 
 An agent opening this repo for the first time should treat onboarding as a conversation with the user, not as a blind script run.
@@ -151,6 +187,47 @@ The one exception is the upstream public template case. There, asking whether th
 
 - first-time adoption of this system
 - accidental use of the upstream template by an existing user who should really be using their own repo
+
+### 2B. If the machine is already managed and the user asks to "sync skills"
+
+Treat this as a multi-machine sync request, not as onboarding.
+
+The protocol is:
+
+1. inspect the git state of the skills-registry repo first
+2. do **not** run install sync until the repo state is clear
+3. then materialize the resolved skills-registry repo state onto this machine
+
+At minimum, inspect:
+
+- whether the working tree is dirty
+- whether the local branch is ahead of remote
+- whether it is behind remote
+- whether local and remote have diverged
+
+Then branch:
+
+- if the skills-registry repo is clean and only **behind** remote:
+  - pull with a safe fast-forward workflow
+  - then run `sync-agent-global`
+  - if the current project repo has `.agent-skills.toml`, run `sync-project`
+- if the skills-registry repo is clean and only **ahead** of remote:
+  - do not blindly pull
+  - tell the user this machine has unpushed commits
+  - ask whether to push first or only sync local install surfaces from the current local repo state
+- if the skills-registry repo is **diverged**:
+  - stop before install sync
+  - explain that both local and remote have commits
+  - resolve the merge or rebase deliberately before materializing installs
+- if the skills-registry repo working tree is **dirty**:
+  - stop before pull
+  - ask whether the user wants to commit, stash, or discard those changes
+
+The important guardrail is:
+
+- repo sync can be bidirectional because multiple machines may edit the repo
+- install sync is always local materialization from the resolved skills-registry repo state
+- the project repo's own git state is a separate concern and is not what `sync skills` is primarily synchronizing
 
 ### 3. Ask which agents to manage
 

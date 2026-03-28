@@ -34,6 +34,7 @@ It contains:
 - README is the AI-led onboarding contract for fresh install and migration.
 - Project installs are shared-only. They live in a project's `.agent-skills.toml` and materialize into `.agents/skills` plus `.claude/skills` for Claude-native discovery.
 - Onboarding migration stays agent-global only. Explicit post-bootstrap project-local adoption belongs in `manage_agent_skills.py adopt-project`.
+- On an already managed machine, resolve repo git state before running `sync-agent-global` or `sync-project`.
 - Do not hard-code the repo path.
 - Do not shadow a shared skill with the same name in an agent folder.
 - If a shared skill needs divergence, create a renamed agent-specific variant.
