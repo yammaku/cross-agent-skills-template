@@ -26,6 +26,7 @@ from agent_skills.system import (
     NATIVE_GLOBAL_MANAGED_STATE,
     agent_global_install_strategy,
     agent_install_root,
+    ensure_managed_symlink,
     read_config,
     remove_path,
     sync_install_dir,
@@ -210,13 +211,20 @@ def interoperable_project_install_dir(project: Path) -> Path:
     return project / ".agents" / "skills"
 
 
-def project_install_dirs(root: Path, project: Path) -> list[Path]:
-    paths: list[Path] = [interoperable_project_install_dir(project)]
+def project_install_targets(root: Path, project: Path) -> list[tuple[Path, str]]:
+    targets: list[tuple[Path, str]] = [
+        (interoperable_project_install_dir(project), GLOBAL_INSTALL_STRATEGY_MATERIALIZED_SKILL_DIR)
+    ]
     for adapter in adapters(root).values():
         native = adapter.project_path(project)
-        if native not in paths:
-            paths.append(native)
-    return paths
+        if any(native == existing for existing, _strategy in targets):
+            continue
+        targets.append((native, adapter.project_install_strategy))
+    return targets
+
+
+def project_install_dirs(root: Path, project: Path) -> list[Path]:
+    return [path for path, _strategy in project_install_targets(root, project)]
 
 
 def project_candidate_skill_roots(root: Path, project: Path) -> list[Path]:
@@ -588,6 +596,8 @@ def materialize_project_dir(
     dest_dir: Path,
     desired: dict[str, Path],
     previous_names: set[str],
+    *,
+    strategy: str,
 ) -> set[str]:
     dest_dir.mkdir(parents=True, exist_ok=True)
     existing_names = set()
@@ -600,7 +610,12 @@ def materialize_project_dir(
                 raise SkillRepoError(
                     f"Project install path already contains unmanaged entry: {dest}"
                 )
-        sync_materialized_skill_dir(dest, source, relative=False)
+        if strategy == GLOBAL_INSTALL_STRATEGY_MATERIALIZED_SKILL_DIR:
+            sync_materialized_skill_dir(dest, source, relative=False)
+        elif strategy == GLOBAL_INSTALL_STRATEGY_SYMLINKED_VIEW:
+            ensure_managed_symlink(dest, source, relative=False)
+        else:
+            raise SkillRepoError(f"Unknown project install strategy: {strategy}")
 
     for name in previous_names - existing_names:
         stale = dest_dir / name
@@ -622,8 +637,13 @@ def sync_project(root: Path, project: Path) -> None:
 
     previous_agent, previous_names = read_project_managed_state(project)
     existing_names = set()
-    for install_dir in project_install_dirs(root, project):
-        existing_names = materialize_project_dir(install_dir, desired, previous_names)
+    for install_dir, strategy in project_install_targets(root, project):
+        existing_names = materialize_project_dir(
+            install_dir,
+            desired,
+            previous_names,
+            strategy=strategy,
+        )
 
     write_project_managed_state(project, existing_names)
     print(

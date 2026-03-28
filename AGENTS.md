@@ -144,7 +144,7 @@ bootstrap/
 - Agent-global manifests use explicit refs such as `shared/example-skill` or `codex/example-agent-skill`.
 - Generated install views are outputs, not primary authoring surfaces.
 - Migration V1 is agent-global only. Do not auto-scan or auto-import project-local skills during onboarding. Use the explicit `adopt-project` workflow after bootstrap when a project needs to bring local skills into the shared registry.
-- Project installs are shared-only, declared in `.agent-skills.toml`, and materialized into `.agents/skills` plus any distinct native project mirrors such as `.claude/skills`.
+- Project installs are shared-only, declared in `.agent-skills.toml`, and materialized into `.agents/skills` plus any distinct native project mirrors such as `.codex/skills` and `.claude/skills`.
 - Do not shadow a shared skill with the same name in an agent folder.
 - If a shared skill needs divergence, create a renamed variant such as `my-skill-antigravity`.
 - Do not auto-merge or auto-promote based on matching names alone.
@@ -158,6 +158,7 @@ bootstrap/
 - Keep the universal rulebook universal: create, import, classify, install, sync, and validate through the repo-first lifecycle for every agent.
 - Keep onboarding AI-led: use scripts for deterministic discovery, import, and install work, but keep classification and review in the agent conversation.
 - Respect adapter-specific install materialization. Today Antigravity adds one compatibility layer because it needs real top-level skill directories, while Codex, Gemini CLI, and Claude Code work with symlinked views.
+- Respect adapter-specific project mirrors too. Codex project installs should use top-level directory symlinks in `.codex/skills` so they still resolve to the shared catalog, while `.agents/skills` remains the interoperable linked view.
 - Keep `manage-agent-skills` universal. Do not fork it per agent; encode agent differences in adapters and in the shared skill's instructions.
 - Do not add agent-specific skills to project manifests. Those belong in agent-global manifests only.
 - When system behavior changes, update all three surfaces deliberately:

@@ -34,7 +34,7 @@ This repo is the public minimal template, not the user's lived-in private regist
 - Generated install views are outputs, not primary authoring surfaces.
 - Antigravity does not get a separate lifecycle. It adds one compatibility layer because its native global scanner needs real top-level skill directories.
 - README is the AI-led onboarding contract for fresh install and migration.
-- Project installs are shared-only. They live in a project's `.agent-skills.toml` and materialize into `.agents/skills` plus `.claude/skills` for Claude-native discovery.
+- Project installs are shared-only. They live in a project's `.agent-skills.toml` and materialize into `.agents/skills` plus native mirrors such as `.codex/skills` and `.claude/skills` for host-specific discovery.
 - Onboarding migration stays agent-global only. Explicit post-bootstrap project-local adoption belongs in `manage_agent_skills.py adopt-project`.
 - On an already managed machine, resolve repo git state before running `sync-agent-global` or `sync-project`.
 - Do not hard-code the repo path.

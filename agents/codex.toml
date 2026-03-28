@@ -1,5 +1,6 @@
 name = "codex"
 native_global_skills_dir = "~/.codex/skills"
-native_project_skills_dir = ".agents/skills"
+native_project_skills_dir = ".codex/skills"
 preferred_instruction_files = ["AGENTS.md"]
 global_install_strategy = "symlinked-view"
+project_install_strategy = "symlinked-view"

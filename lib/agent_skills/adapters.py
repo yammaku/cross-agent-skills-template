@@ -11,6 +11,7 @@ class AgentAdapter:
     native_project_skills_dir: str
     preferred_instruction_files: tuple[str, ...]
     global_install_strategy: str = "symlinked-view"
+    project_install_strategy: str = "materialized-skill-dir"
 
     def global_path(self) -> Path:
         return Path(self.native_global_skills_dir).expanduser()
@@ -60,6 +61,9 @@ def parse_adapter_file(path: Path) -> AgentAdapter:
         native_project_skills_dir=str(data["native_project_skills_dir"]),
         preferred_instruction_files=tuple(data.get("preferred_instruction_files", ())),
         global_install_strategy=str(data.get("global_install_strategy") or "symlinked-view"),
+        project_install_strategy=str(
+            data.get("project_install_strategy") or "materialized-skill-dir"
+        ),
     )
 
 

@@ -107,7 +107,7 @@ The README owns:
 
 This skill takes over only after onboarding has installed `shared/manage-agent-skills` into the selected agents' agent-global views.
 
-Claude Code is supported through the same onboarding flow. Its adapter maps agent-global installs to `~/.claude/skills` and mirrors shared project installs into `.claude/skills`.
+Codex and Claude Code are supported through the same onboarding flow. Their adapters map agent-global installs to `~/.codex/skills` and `~/.claude/skills`, and mirror shared project installs into `.codex/skills` and `.claude/skills`.
 
 ## Scope Boundary
 
@@ -165,7 +165,8 @@ Current examples:
 
 - Codex, Gemini CLI, and Claude Code can consume symlinked agent-global views.
 - Antigravity requires real top-level skill directories in its native global path.
-- Shared project install surfaces are materialized as real top-level skill directories with linked contents so the interoperable `.agents/skills` path remains compatible with Antigravity.
+- Shared project install surfaces are materialized per adapter. The interoperable `.agents/skills` path remains a real top-level skill directory view with linked contents, while native mirrors such as `.codex/skills` and `.claude/skills` can use the host-specific shape they need.
+- Codex project mirrors should use top-level directory symlinks to canonical shared skills. That preserves the catalog as source of truth while letting Codex resolve `.codex/skills/<skill>/SKILL.md` as a normal file path.
 
 Those differences are an adapter concern, not a reason to fork the meta-skill.
 
@@ -271,7 +272,7 @@ This guardrail is part of `manage-agent-skills` itself. Do not rely only on per-
 In practice, this means:
 
 - if the user asks to install or remove a project skill, the skill may sync the project first before applying the new change
-- if the user asks for project skill help and `.agent-skills.toml` already exists, check whether `.agents/skills`, `.claude/skills`, and other project install surfaces need regeneration
+- if the user asks for project skill help and `.agent-skills.toml` already exists, check whether `.agents/skills`, `.codex/skills`, `.claude/skills`, and other project install surfaces need regeneration
 - if everything is already clearly in sync, continue without redundant work
 
 ## Human Intent Playbook
@@ -355,7 +356,7 @@ Expected behavior:
 3. Refuse to overwrite a conflicting shared catalog skill silently.
 4. Back up the replaced local project entries before changing the project install surfaces.
 5. Update the project's `.agent-skills.toml`.
-6. Resync the project so `.agents/skills`, `.claude/skills`, and any compatibility mirrors become registry-managed outputs.
+6. Resync the project so `.agents/skills`, `.codex/skills`, `.claude/skills`, and any compatibility mirrors become registry-managed outputs.
 
 Default operation:
 
@@ -589,7 +590,7 @@ python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
 
 ### Install a skill in one project
 
-Adds one or more shared catalog skills to a project's `.agent-skills.toml` and regenerates both the interop and Claude-native project views.
+Adds one or more shared catalog skills to a project's `.agent-skills.toml` and regenerates both the interoperable and agent-native project views.
 
 ```bash
 python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
@@ -608,13 +609,13 @@ python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
   --project /path/to/project
 ```
 
-You can also target specific skills or point at one project-local source root explicitly:
+You can also target specific skills or point at one project-local source root explicitly. The source root can be `.agents/skills`, `.codex/skills`, `.claude/skills`, or another project-local skill directory:
 
 ```bash
 python3 skills/shared/manage-agent-skills/scripts/manage_agent_skills.py \
   adopt-project \
   --project /path/to/project \
-  --source-dir /path/to/project/.agents/skills \
+  --source-dir /path/to/project/.codex/skills \
   wrangler cloudflare
 ```
 

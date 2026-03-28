@@ -181,7 +181,7 @@ def sync_install_dir(
         elif strategy == GLOBAL_INSTALL_STRATEGY_MATERIALIZED_SKILL_DIR:
             sync_materialized_skill_dir(dest, source, relative=relative)
         else:
-            raise ValueError(f"Unknown global install strategy: {strategy}")
+            raise ValueError(f"Unknown install strategy: {strategy}")
 
 
 def is_effectively_empty(path: Path, *, ignored_names: set[str] | None = None) -> bool:
