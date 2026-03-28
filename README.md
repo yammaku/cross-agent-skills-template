@@ -34,11 +34,19 @@ Do **not** use the upstream public template on a new machine.
 
 Instead:
 
-1. use **your own existing skills-registry repo**
-2. give that repo to your AI agent
-3. let the agent onboard the new machine to your repo
+1. make sure **your existing private skills-registry repo is cloned locally on this machine**
+2. use that local clone
+3. give that local clone to your AI agent
+4. let the agent onboard the new machine to that local clone
 
 Your own repo is the source of truth once you have one.
+
+Important guardrail:
+
+- your **remote URL alone is not enough**
+- this machine needs a **local clone** of your private skills-registry repo
+- that local clone becomes **repo B** for this machine
+- `~/.agent-skills/config.toml` should point to that local clone, not to an install surface
 
 ### What should you expect the AI agent to do?
 
@@ -50,6 +58,8 @@ It should only ask you to choose when there is a real branch to decide, for exam
 - or replace them with backup
 
 Fresh install does **not** silently overwrite unmanaged local skill roots. If they already exist, the system will stop and ask for confirmation.
+
+For an existing user on a new machine, the agent should first ensure the private skills-registry repo is cloned locally before it configures the system. If the user only provides a Git link, the agent should clone it and continue from the local clone.
 
 ### If this machine already uses this system and you want to "sync skills"
 
@@ -161,8 +171,9 @@ Then branch:
   3. continue onboarding there
 - if **no**:
   1. ask the user for the link or local path to their existing skills-registry repo
-  2. open or clone that repo instead
-  3. continue onboarding there
+  2. if the user gives a remote link, clone it locally first
+  3. continue onboarding from that local clone, not from the bare URL
+  4. treat that local clone as the skills-registry repo for this machine
 
 Do not mutate the upstream public template clone as if it were the user's personal registry.
 

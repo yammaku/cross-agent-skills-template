@@ -84,6 +84,8 @@ The script resolves the repo root in this order:
 - walking up from the script file location
 - `~/.agent-skills/config.toml`
 
+The machine should ultimately be anchored to a real local skills-registry clone. Do not treat a bare remote URL or a managed install surface like `~/.gemini/antigravity/skills` as the repo of record.
+
 ## Pre-Install Boundary
 
 If the machine has not been onboarded yet, do not assume the installed copy of this skill exists.
@@ -93,6 +95,8 @@ Before bootstrap or migration:
 1. clone or open the user's skills-registry repo
 2. read the root `README.md`
 3. follow the AI-led onboarding contract there
+
+For an existing user on a new machine, a remote Git link is not enough by itself. Ensure the user's skills-registry repo is cloned locally first, then continue from that local clone. That local clone becomes the repo this machine should use for future pull, push, diff, status, and sync operations.
 
 The README owns:
 
